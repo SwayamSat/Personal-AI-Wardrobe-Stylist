@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
-import { analyzeClothing } from '@/lib/embeddings'
+import { analyzeClothingComprehensive } from '@/lib/embeddings'
 import { Upload, X, Check, Loader2, Shirt, Sparkles, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -170,10 +170,10 @@ export default function UploadPage() {
             .getPublicUrl(fileName)
 
           // Show AI processing status
-          console.log(`Analyzing clothing item ${i + 1}/${uploadedFiles.length} with AI...`)
+          console.log(`Analyzing clothing item ${i + 1}/${uploadedFiles.length} with comprehensive AI...`)
           
-          // Analyze the clothing item with AI
-          const analysis = await analyzeClothing(publicUrl)
+          // Analyze the clothing item with comprehensive AI
+          const analysis = await analyzeClothingComprehensive(publicUrl)
           
           // Save to database
           const { error: dbError } = await supabase
@@ -406,9 +406,19 @@ export default function UploadPage() {
                           {item.color}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-500 capitalize">
+                      <div className="text-xs text-gray-500 capitalize mb-1">
                         {item.material}
                       </div>
+                      {item.pattern && (
+                        <div className="text-xs text-gray-500 capitalize mb-1">
+                          Pattern: {item.pattern}
+                        </div>
+                      )}
+                      {item.style && (
+                        <div className="text-xs text-gray-500 capitalize">
+                          Style: {item.style}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
