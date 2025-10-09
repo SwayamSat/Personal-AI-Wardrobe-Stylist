@@ -355,21 +355,21 @@ export async function testAIModel() {
   }
 }
 
-// Comprehensive clothing analysis using multiple models and approaches
+// Advanced color detection using computer vision and specialized AI models
 export async function analyzeClothingComprehensive(imageUrl: string) {
-  console.log('⚡ Starting fast clothing analysis...')
+  console.log('🎨 Starting advanced color & material analysis...')
   
   try {
     const pipeline = await initializeFashionCLIP()
     if (!pipeline) {
-      console.log('⚠️ No AI model available, using enhanced fallback')
-      return getEnhancedFallbackAnalysis(imageUrl)
+      console.log('⚠️ No AI model available, using computer vision fallback')
+      return await analyzeWithComputerVision(imageUrl)
     }
 
     try {
-      console.log('📸 Processing image...')
+      console.log('📸 Processing image for advanced analysis...')
       
-      // Simple and fast image processing
+      // Get image data for computer vision analysis
       const response = await fetch(imageUrl, {
         mode: 'cors',
         credentials: 'omit'
@@ -381,18 +381,22 @@ export async function analyzeClothingComprehensive(imageUrl: string) {
       
       const blob = await response.blob()
       
-      // Create an image element to get the image data
+      // Create an image element for analysis
       const img = new Image()
       img.crossOrigin = 'anonymous'
       
       return new Promise((resolve) => {
         img.onload = async () => {
           try {
-            // Create a canvas to process the image
+            // Computer vision color analysis
+            console.log('🔍 Performing computer vision color analysis...')
+            const cvAnalysis = await analyzeImageColors(img)
+            
+            // AI model analysis for patterns and materials
+            console.log('🤖 Running AI model analysis...')
             const canvas = document.createElement('canvas')
             const ctx = canvas.getContext('2d')
             
-            // Resize image to standard size for better model performance
             const targetSize = 224
             canvas.width = targetSize
             canvas.height = targetSize
@@ -400,79 +404,292 @@ export async function analyzeClothingComprehensive(imageUrl: string) {
             if (ctx) {
               ctx.drawImage(img, 0, 0, targetSize, targetSize)
               
-              // Convert canvas to blob for the AI model
               const processedBlob = await new Promise<Blob>((resolve) => {
                 canvas.toBlob((blob) => {
                   resolve(blob!)
                 }, 'image/jpeg', 0.8)
               })
               
-              // Single fast analysis with timeout
-              console.log('🔍 Analyzing clothing...')
               const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Analysis timeout')), 10000) // 10 second timeout
+                setTimeout(() => reject(new Error('Analysis timeout')), 8000)
               })
               
               const analysisPromise = pipeline(processedBlob)
-              const result = await Promise.race([analysisPromise, timeoutPromise])
+              const aiResult = await Promise.race([analysisPromise, timeoutPromise])
               
-              // Process the result with enhanced classification
-              const analysis = processAIResult(result, imageUrl, pipeline)
+              // Process AI results for patterns and materials
+              const aiAnalysis = processAIResult(aiResult, imageUrl, pipeline)
               
-              // Add simple pattern and style detection from filename
-              const url = imageUrl.toLowerCase()
-              let pattern = 'solid'
-              let style = 'casual'
-              
-              // Quick pattern detection from URL
-              if (url.includes('stripe') || url.includes('line')) pattern = 'striped'
-              else if (url.includes('dot') || url.includes('polka')) pattern = 'polka-dot'
-              else if (url.includes('floral') || url.includes('flower')) pattern = 'floral'
-              else if (url.includes('plaid') || url.includes('check')) pattern = 'plaid'
-              else if (url.includes('denim') || url.includes('jean')) pattern = 'denim'
-              
-              // Quick style detection from URL
-              if (url.includes('formal') || url.includes('business')) style = 'formal'
-              else if (url.includes('sport') || url.includes('athletic')) style = 'sporty'
-              else if (url.includes('vintage') || url.includes('retro')) style = 'vintage'
-              else if (url.includes('modern') || url.includes('trendy')) style = 'modern'
-              
-              const fastAnalysis = {
-                category: analysis.category,
-                color: analysis.color,
-                material: analysis.material,
-                pattern: pattern,
-                style: style,
-                confidence: analysis.confidence || 0.7,
-                embedding: generateSimpleEmbedding(analysis.category, analysis.color, pattern, style)
+              // Combine computer vision color analysis with AI pattern/material analysis
+              const combinedAnalysis = {
+                category: aiAnalysis.category,
+                color: cvAnalysis.dominantColor, // Use computer vision color detection
+                material: detectMaterialFromAI(aiResult),
+                pattern: detectPatternFromAI(aiResult),
+                style: detectStyleFromAI(aiResult),
+                confidence: Math.max(cvAnalysis.confidence, aiAnalysis.confidence || 0.7),
+                embedding: generateSimpleEmbedding(aiAnalysis.category, cvAnalysis.dominantColor, detectPatternFromAI(aiResult), detectStyleFromAI(aiResult))
               }
               
-              console.log('✅ Fast analysis completed:', fastAnalysis)
-              resolve(fastAnalysis)
+              console.log('✅ Advanced analysis completed:', combinedAnalysis)
+              resolve(combinedAnalysis)
             } else {
-              resolve(getEnhancedFallbackAnalysis(imageUrl))
+              resolve(await analyzeWithComputerVision(imageUrl))
             }
           } catch (error) {
-            console.log('❌ Fast analysis failed, using enhanced fallback:', error)
-            resolve(getEnhancedFallbackAnalysis(imageUrl))
+            console.log('❌ Advanced analysis failed, using computer vision fallback:', error)
+            resolve(await analyzeWithComputerVision(imageUrl))
           }
         }
         
         img.onerror = () => {
-          console.log('❌ Image loading failed, using enhanced fallback analysis')
-          resolve(getEnhancedFallbackAnalysis(imageUrl))
+          console.log('❌ Image loading failed, using computer vision fallback')
+          resolve(analyzeWithComputerVision(imageUrl))
         }
         
         img.src = imageUrl
       })
     } catch (error) {
-      console.log('❌ Fast analysis failed, using enhanced fallback:', error)
-      return getEnhancedFallbackAnalysis(imageUrl)
+      console.log('❌ Advanced analysis failed, using computer vision fallback:', error)
+      return await analyzeWithComputerVision(imageUrl)
     }
   } catch (error) {
-    console.error('❌ Error in fast clothing analysis:', error)
+    console.error('❌ Error in advanced analysis:', error)
+    return await analyzeWithComputerVision(imageUrl)
+  }
+}
+
+// Computer vision color analysis using canvas pixel data
+async function analyzeImageColors(img: HTMLImageElement): Promise<{ dominantColor: string; confidence: number }> {
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    
+    if (!ctx) {
+      return { dominantColor: 'black', confidence: 0.3 }
+    }
+    
+    // Resize image for faster processing
+    const maxSize = 200
+    const scale = Math.min(maxSize / img.width, maxSize / img.height)
+    canvas.width = img.width * scale
+    canvas.height = img.height * scale
+    
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    
+    // Get image data
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const pixels = imageData.data
+    
+    // Color frequency analysis
+    const colorCounts: { [key: string]: number } = {}
+    const colorMap: { [key: string]: string } = {}
+    
+    // Sample every 4th pixel for performance
+    for (let i = 0; i < pixels.length; i += 16) { // Every 4th pixel
+      const r = pixels[i]
+      const g = pixels[i + 1]
+      const b = pixels[i + 2]
+      const a = pixels[i + 3]
+      
+      // Skip transparent pixels
+      if (a < 128) continue
+      
+      // Convert RGB to color name
+      const colorName = rgbToColorName(r, g, b)
+      const colorKey = `${r},${g},${b}`
+      
+      colorCounts[colorName] = (colorCounts[colorName] || 0) + 1
+      colorMap[colorKey] = colorName
+    }
+    
+    // Find dominant color
+    let dominantColor = 'black'
+    let maxCount = 0
+    
+    for (const [color, count] of Object.entries(colorCounts)) {
+      if (count > maxCount) {
+        maxCount = count
+        dominantColor = color
+      }
+    }
+    
+    // Calculate confidence based on color dominance
+    const totalPixels = Object.values(colorCounts).reduce((sum, count) => sum + count, 0)
+    const confidence = totalPixels > 0 ? Math.min(maxCount / totalPixels * 2, 0.95) : 0.3
+    
+    console.log(`🎨 Computer vision detected color: ${dominantColor} (confidence: ${confidence.toFixed(2)})`)
+    
+    return { dominantColor, confidence }
+  } catch (error) {
+    console.error('❌ Computer vision color analysis failed:', error)
+    return { dominantColor: 'black', confidence: 0.3 }
+  }
+}
+
+// Convert RGB values to color names
+function rgbToColorName(r: number, g: number, b: number): string {
+  // Define color ranges with more precise thresholds
+  const colors = [
+    { name: 'black', ranges: [{ r: [0, 50], g: [0, 50], b: [0, 50] }] },
+    { name: 'white', ranges: [{ r: [200, 255], g: [200, 255], b: [200, 255] }] },
+    { name: 'gray', ranges: [{ r: [51, 199], g: [51, 199], b: [51, 199] }] },
+    { name: 'red', ranges: [{ r: [100, 255], g: [0, 100], b: [0, 100] }] },
+    { name: 'green', ranges: [{ r: [0, 100], g: [100, 255], b: [0, 100] }] },
+    { name: 'blue', ranges: [{ r: [0, 100], g: [0, 100], b: [100, 255] }] },
+    { name: 'yellow', ranges: [{ r: [150, 255], g: [150, 255], b: [0, 100] }] },
+    { name: 'orange', ranges: [{ r: [150, 255], g: [100, 200], b: [0, 50] }] },
+    { name: 'purple', ranges: [{ r: [100, 200], g: [0, 100], b: [100, 255] }] },
+    { name: 'pink', ranges: [{ r: [200, 255], g: [100, 200], b: [150, 255] }] },
+    { name: 'brown', ranges: [{ r: [100, 200], g: [50, 150], b: [0, 100] }] },
+    { name: 'navy', ranges: [{ r: [0, 50], g: [0, 50], b: [100, 200] }] }
+  ]
+  
+  for (const color of colors) {
+    for (const range of color.ranges) {
+      if (r >= range.r[0] && r <= range.r[1] &&
+          g >= range.g[0] && g <= range.g[1] &&
+          b >= range.b[0] && b <= range.b[1]) {
+        return color.name
+      }
+    }
+  }
+  
+  // Fallback: determine closest color
+  return getClosestColor(r, g, b)
+}
+
+// Get closest color based on RGB distance
+function getClosestColor(r: number, g: number, b: number): string {
+  const colorMap = {
+    'black': [0, 0, 0],
+    'white': [255, 255, 255],
+    'gray': [128, 128, 128],
+    'red': [255, 0, 0],
+    'green': [0, 255, 0],
+    'blue': [0, 0, 255],
+    'yellow': [255, 255, 0],
+    'orange': [255, 165, 0],
+    'purple': [128, 0, 128],
+    'pink': [255, 192, 203],
+    'brown': [165, 42, 42],
+    'navy': [0, 0, 128]
+  }
+  
+  let closestColor = 'black'
+  let minDistance = Infinity
+  
+  for (const [colorName, [cr, cg, cb]] of Object.entries(colorMap)) {
+    const distance = Math.sqrt((r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2)
+    if (distance < minDistance) {
+      minDistance = distance
+      closestColor = colorName
+    }
+  }
+  
+  return closestColor
+}
+
+// Computer vision fallback analysis
+async function analyzeWithComputerVision(imageUrl: string) {
+  console.log('🔍 Using computer vision fallback analysis...')
+  
+  try {
+    const response = await fetch(imageUrl, { mode: 'cors', credentials: 'omit' })
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`)
+    
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    
+    return new Promise((resolve) => {
+      img.onload = async () => {
+        try {
+          const cvAnalysis = await analyzeImageColors(img)
+          
+          const fallbackAnalysis = {
+            category: 'top',
+            color: cvAnalysis.dominantColor,
+            material: 'cotton',
+            pattern: 'solid',
+            style: 'casual',
+            confidence: cvAnalysis.confidence,
+            embedding: generateSimpleEmbedding('top', cvAnalysis.dominantColor, 'solid', 'casual')
+          }
+          
+          console.log('✅ Computer vision fallback completed:', fallbackAnalysis)
+          resolve(fallbackAnalysis)
+        } catch (error) {
+          console.log('❌ Computer vision fallback failed:', error)
+          resolve(getEnhancedFallbackAnalysis(imageUrl))
+        }
+      }
+      
+      img.onerror = () => {
+        console.log('❌ Image loading failed in fallback')
+        resolve(getEnhancedFallbackAnalysis(imageUrl))
+      }
+      
+      img.src = imageUrl
+    })
+  } catch (error) {
+    console.log('❌ Computer vision fallback failed:', error)
     return getEnhancedFallbackAnalysis(imageUrl)
   }
+}
+
+// Extract material from AI results
+function detectMaterialFromAI(aiResult: any): string {
+  const labels = Array.isArray(aiResult) ? aiResult.map((r: any) => r.label || r).join(' ').toLowerCase() : ''
+  
+  const materialKeywords = {
+    'cotton': ['cotton', 'cottony', 'soft', 'breathable'],
+    'denim': ['denim', 'jean', 'jeans'],
+    'silk': ['silk', 'silky', 'smooth', 'luxury'],
+    'wool': ['wool', 'woolen', 'knit', 'warm'],
+    'leather': ['leather', 'leathery', 'hide', 'suede'],
+    'polyester': ['polyester', 'synthetic', 'poly'],
+    'linen': ['linen', 'lightweight'],
+    'cashmere': ['cashmere', 'luxury', 'premium']
+  }
+  
+  for (const [material, keywords] of Object.entries(materialKeywords)) {
+    for (const keyword of keywords) {
+      if (labels.includes(keyword)) {
+        return material
+      }
+    }
+  }
+  
+  return 'cotton'
+}
+
+// Extract pattern from AI results
+function detectPatternFromAI(aiResult: any): string {
+  const labels = Array.isArray(aiResult) ? aiResult.map((r: any) => r.label || r).join(' ').toLowerCase() : ''
+  
+  if (labels.includes('stripe') || labels.includes('striped')) return 'striped'
+  if (labels.includes('dot') || labels.includes('polka')) return 'polka-dot'
+  if (labels.includes('floral') || labels.includes('flower')) return 'floral'
+  if (labels.includes('plaid') || labels.includes('check')) return 'plaid'
+  if (labels.includes('denim') || labels.includes('jean')) return 'denim'
+  if (labels.includes('geometric')) return 'geometric'
+  if (labels.includes('animal') || labels.includes('zebra')) return 'animal-print'
+  
+  return 'solid'
+}
+
+// Extract style from AI results
+function detectStyleFromAI(aiResult: any): string {
+  const labels = Array.isArray(aiResult) ? aiResult.map((r: any) => r.label || r).join(' ').toLowerCase() : ''
+  
+  if (labels.includes('formal') || labels.includes('business')) return 'formal'
+  if (labels.includes('sport') || labels.includes('athletic')) return 'sporty'
+  if (labels.includes('vintage') || labels.includes('retro')) return 'vintage'
+  if (labels.includes('modern') || labels.includes('trendy')) return 'modern'
+  if (labels.includes('bohemian') || labels.includes('boho')) return 'bohemian'
+  if (labels.includes('minimalist')) return 'minimalist'
+  
+  return 'casual'
 }
 
 // Pattern analysis function

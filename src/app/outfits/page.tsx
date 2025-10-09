@@ -123,53 +123,176 @@ export default function OutfitsPage() {
   const calculateOutfitScore = (top: ClothingItem, bottom: ClothingItem, shoe?: ClothingItem, occasion?: string): number => {
     let score = 0
 
-    // Color harmony
-    if (top.color === bottom.color) score += 0.3 // Monochrome
-    if (areColorsComplementary(top.color, bottom.color)) score += 0.5 // Complementary
-    if (areColorsAnalogous(top.color, bottom.color)) score += 0.4 // Analogous
+    // Enhanced color harmony scoring
+    const colorScore = calculateColorHarmony(top.color, bottom.color, shoe?.color)
+    score += colorScore * 0.4 // 40% weight for color harmony
+
+    // Pattern compatibility
+    const patternScore = calculatePatternCompatibility(top.pattern || 'solid', bottom.pattern || 'solid', shoe?.pattern || 'solid')
+    score += patternScore * 0.2 // 20% weight for pattern compatibility
+
+    // Style consistency
+    const styleScore = calculateStyleConsistency(top.style || 'casual', bottom.style || 'casual', shoe?.style || 'casual')
+    score += styleScore * 0.2 // 20% weight for style consistency
 
     // Occasion appropriateness
-    if (occasion === 'casual') {
-      if (top.material === 'cotton' && bottom.material === 'denim') score += 0.3
-    } else if (occasion === 'office') {
-      if (top.color === 'white' || top.color === 'blue') score += 0.2
-      if (bottom.color === 'black' || bottom.color === 'gray') score += 0.2
-    } else if (occasion === 'party') {
-      if (top.color === 'black' || top.color === 'red') score += 0.3
-    }
-
-    // Shoe matching
-    if (shoe) {
-      if (shoe.color === top.color || shoe.color === bottom.color) score += 0.2
-      if (occasion === 'formal' && shoe.color === 'black') score += 0.3
-    }
+    const occasionScore = calculateOccasionScore(top, bottom, shoe, occasion)
+    score += occasionScore * 0.2 // 20% weight for occasion appropriateness
 
     return Math.min(score, 1) // Cap at 1
   }
 
-  const areColorsComplementary = (color1: string, color2: string): boolean => {
+  const calculateColorHarmony = (topColor: string, bottomColor: string, shoeColor?: string): number => {
+    let score = 0
+
+    // Monochrome (same color family)
+    if (topColor === bottomColor) {
+      score += 0.8
+    }
+
+    // Complementary colors
     const complementaryPairs = [
-      ['red', 'green'],
-      ['blue', 'orange'],
-      ['yellow', 'purple'],
-      ['pink', 'green'],
-      ['black', 'white']
+      ['red', 'green'], ['blue', 'orange'], ['yellow', 'purple'],
+      ['pink', 'green'], ['black', 'white'], ['navy', 'orange'],
+      ['burgundy', 'forest'], ['coral', 'teal']
     ]
-    return complementaryPairs.some(pair => 
-      (pair.includes(color1) && pair.includes(color2))
-    )
+    
+    for (const [color1, color2] of complementaryPairs) {
+      if ((topColor === color1 && bottomColor === color2) || 
+          (topColor === color2 && bottomColor === color1)) {
+        score += 0.9
+        break
+      }
+    }
+
+    // Analogous colors (adjacent on color wheel)
+    const analogousGroups = [
+      ['red', 'pink', 'orange'], ['blue', 'purple', 'pink'],
+      ['green', 'blue', 'teal'], ['yellow', 'orange', 'red'],
+      ['purple', 'blue', 'indigo'], ['green', 'yellow', 'lime']
+    ]
+    
+    for (const group of analogousGroups) {
+      if (group.includes(topColor) && group.includes(bottomColor)) {
+        score += 0.7
+        break
+      }
+    }
+
+    // Neutral combinations
+    const neutrals = ['black', 'white', 'gray', 'brown', 'beige', 'navy']
+    if (neutrals.includes(topColor) || neutrals.includes(bottomColor)) {
+      score += 0.6
+    }
+
+    // Shoe color matching
+    if (shoeColor) {
+      if (shoeColor === topColor || shoeColor === bottomColor) {
+        score += 0.3
+      } else if (neutrals.includes(shoeColor)) {
+        score += 0.2
+      }
+    }
+
+    return Math.min(score, 1)
   }
 
-  const areColorsAnalogous = (color1: string, color2: string): boolean => {
-    const analogousGroups = [
-      ['red', 'pink', 'orange'],
-      ['blue', 'purple', 'pink'],
-      ['green', 'blue', 'teal'],
-      ['yellow', 'orange', 'red']
-    ]
-    return analogousGroups.some(group => 
-      group.includes(color1) && group.includes(color2)
-    )
+  const calculatePatternCompatibility = (topPattern?: string, bottomPattern?: string, shoePattern?: string): number => {
+    let score = 0.5 // Base score
+
+    // If both have patterns, check compatibility
+    if (topPattern && bottomPattern && topPattern !== 'solid' && bottomPattern !== 'solid') {
+      // Same pattern
+      if (topPattern === bottomPattern) {
+        score = 0.3 // Can be overwhelming
+      }
+      // Complementary patterns
+      else if ((topPattern === 'striped' && bottomPattern === 'solid') ||
+               (topPattern === 'solid' && bottomPattern === 'striped') ||
+               (topPattern === 'floral' && bottomPattern === 'solid') ||
+               (topPattern === 'solid' && bottomPattern === 'floral')) {
+        score = 0.8
+      }
+      // Conflicting patterns
+      else if ((topPattern === 'striped' && bottomPattern === 'plaid') ||
+               (topPattern === 'plaid' && bottomPattern === 'striped')) {
+        score = 0.2
+      }
+    }
+    // One patterned, one solid
+    else if ((topPattern && topPattern !== 'solid' && bottomPattern === 'solid') ||
+             (bottomPattern && bottomPattern !== 'solid' && topPattern === 'solid')) {
+      score = 0.9
+    }
+    // Both solid
+    else if (topPattern === 'solid' && bottomPattern === 'solid') {
+      score = 0.7
+    }
+
+    return Math.min(score, 1)
+  }
+
+  const calculateStyleConsistency = (topStyle?: string, bottomStyle?: string, shoeStyle?: string): number => {
+    let score = 0.5 // Base score
+
+    const styles = [topStyle, bottomStyle, shoeStyle].filter(Boolean)
+    
+    if (styles.length === 0) return score
+
+    // Count style matches
+    const styleCounts: { [key: string]: number } = {}
+    styles.forEach(style => {
+      styleCounts[style!] = (styleCounts[style!] || 0) + 1
+    })
+
+    // Find most common style
+    const maxCount = Math.max(...Object.values(styleCounts))
+    const consistencyRatio = maxCount / styles.length
+
+    score = consistencyRatio * 0.8 + 0.2 // Scale to 0.2-1.0
+
+    return Math.min(score, 1)
+  }
+
+  const calculateOccasionScore = (top: ClothingItem, bottom: ClothingItem, shoe?: ClothingItem, occasion?: string): number => {
+    let score = 0.5 // Base score
+
+    if (!occasion) return score
+
+    const allItems = [top, bottom, shoe].filter(Boolean)
+    const allColors = allItems.map(item => item!.color)
+    const allStyles = allItems.map(item => item!.style || 'casual').filter(Boolean)
+    const allMaterials = allItems.map(item => item!.material).filter(Boolean)
+
+    switch (occasion) {
+      case 'casual':
+        if (allMaterials.includes('cotton') || allMaterials.includes('denim')) score += 0.3
+        if (allStyles.includes('casual') || allStyles.includes('sporty')) score += 0.3
+        if (allColors.includes('blue') || allColors.includes('white')) score += 0.2
+        break
+
+      case 'office':
+        if (allColors.includes('white') || allColors.includes('blue') || allColors.includes('black')) score += 0.3
+        if (allStyles.includes('formal') || allStyles.includes('modern')) score += 0.3
+        if (allMaterials.includes('cotton') || allMaterials.includes('wool')) score += 0.2
+        if (shoe && shoe.color === 'black') score += 0.2
+        break
+
+      case 'party':
+        if (allColors.includes('black') || allColors.includes('red') || allColors.includes('purple')) score += 0.3
+        if (allStyles.includes('formal') || allStyles.includes('modern')) score += 0.3
+        if (allMaterials.includes('silk') || allMaterials.includes('cashmere')) score += 0.2
+        break
+
+      case 'formal':
+        if (allColors.includes('black') || allColors.includes('white') || allColors.includes('navy')) score += 0.3
+        if (allStyles.includes('formal')) score += 0.4
+        if (allMaterials.includes('wool') || allMaterials.includes('silk')) score += 0.2
+        if (shoe && shoe.color === 'black') score += 0.1
+        break
+    }
+
+    return Math.min(score, 1)
   }
 
   const likeOutfit = async (outfitId: string) => {
@@ -278,6 +401,56 @@ export default function OutfitsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {outfits.map((outfit) => (
               <div key={outfit.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {/* Outfit Images */}
+                <div className="relative h-48 bg-gray-100">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="grid grid-cols-2 gap-1 w-full h-full p-2">
+                      {/* Top */}
+                      <div className="relative">
+                        <img
+                          src={outfit.top.image_url}
+                          alt={`${outfit.top.color} ${outfit.top.category}`}
+                          className="w-full h-full object-cover rounded"
+                        />
+                        <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                          Top
+                        </div>
+                      </div>
+                      
+                      {/* Bottom */}
+                      <div className="relative">
+                        <img
+                          src={outfit.bottom.image_url}
+                          alt={`${outfit.bottom.color} ${outfit.bottom.category}`}
+                          className="w-full h-full object-cover rounded"
+                        />
+                        <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                          Bottom
+                        </div>
+                      </div>
+                      
+                      {/* Shoe (if available) */}
+                      {outfit.shoe && (
+                        <div className="relative col-span-2">
+                          <img
+                            src={outfit.shoe.image_url}
+                            alt={`${outfit.shoe.color} ${outfit.shoe.category}`}
+                            className="w-full h-full object-cover rounded"
+                          />
+                          <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                            Shoes
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Match Score Badge */}
+                  <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                    {Math.round(outfit.score * 100)}% Match
+                  </div>
+                </div>
+
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-lg font-medium text-gray-900">Outfit</h3>
@@ -291,22 +464,34 @@ export default function OutfitsPage() {
                   
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <Shirt className="h-4 w-4 text-gray-400" />
+                      <div 
+                        className="w-3 h-3 rounded-full border border-gray-300"
+                        style={{ backgroundColor: outfit.top.color }}
+                      ></div>
                       <span className="text-sm text-gray-600">
                         {outfit.top.color} {outfit.top.category}
+                        {(outfit.top as any).pattern && (outfit.top as any).pattern !== 'solid' && ` (${(outfit.top as any).pattern})`}
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Shirt className="h-4 w-4 text-gray-400" />
+                      <div 
+                        className="w-3 h-3 rounded-full border border-gray-300"
+                        style={{ backgroundColor: outfit.bottom.color }}
+                      ></div>
                       <span className="text-sm text-gray-600">
                         {outfit.bottom.color} {outfit.bottom.category}
+                        {(outfit.bottom as any).pattern && (outfit.bottom as any).pattern !== 'solid' && ` (${(outfit.bottom as any).pattern})`}
                       </span>
                     </div>
                     {outfit.shoe && (
                       <div className="flex items-center space-x-2">
-                        <Shirt className="h-4 w-4 text-gray-400" />
+                        <div 
+                          className="w-3 h-3 rounded-full border border-gray-300"
+                          style={{ backgroundColor: outfit.shoe.color }}
+                        ></div>
                         <span className="text-sm text-gray-600">
                           {outfit.shoe.color} {outfit.shoe.category}
+                          {(outfit.shoe as any).pattern && (outfit.shoe as any).pattern !== 'solid' && ` (${(outfit.shoe as any).pattern})`}
                         </span>
                       </div>
                     )}
@@ -314,7 +499,7 @@ export default function OutfitsPage() {
                   
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs text-gray-500">
-                      Match: {Math.round(outfit.score * 100)}%
+                      Style: {(outfit.top as any).style || 'casual'}
                     </span>
                     <span className="text-xs text-purple-600 font-medium">
                       {occasion}
