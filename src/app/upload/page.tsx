@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
 import { analyzeClothing } from '@/lib/embeddings'
-import { Upload, X, Check, Loader2, Shirt, Sparkles } from 'lucide-react'
+import { Upload, X, Check, Loader2, Shirt, Sparkles, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function UploadPage() {
@@ -15,6 +15,7 @@ export default function UploadPage() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [uploadedClothes, setUploadedClothes] = useState<any[]>([])
   const [aiProcessing, setAiProcessing] = useState(false)
+  const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -59,6 +60,49 @@ export default function UploadPage() {
     setUploadedClothes(data || [])
   }
 
+  const deleteClothingItem = async (itemId: string) => {
+    if (!user) return
+
+    // Add to deleting set to show loading state
+    setDeletingItems(prev => new Set(prev).add(itemId))
+
+    try {
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('clothes')
+        .delete()
+        .eq('id', itemId)
+        .eq('user_id', user.id)
+
+      if (dbError) {
+        console.error('Error deleting clothing item:', dbError)
+        alert('Error deleting item. Please try again.')
+        return
+      }
+
+      // Remove from local state
+      setUploadedClothes(prev => prev.filter(item => item.id !== itemId))
+      
+      console.log('Clothing item deleted successfully')
+    } catch (error) {
+      console.error('Error deleting clothing item:', error)
+      alert('Error deleting item. Please try again.')
+    } finally {
+      // Remove from deleting set
+      setDeletingItems(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(itemId)
+        return newSet
+      })
+    }
+  }
+
+  const confirmDeleteItem = (itemId: string, itemCategory: string) => {
+    if (window.confirm(`Are you sure you want to delete this ${itemCategory} from your wardrobe?`)) {
+      deleteClothingItem(itemId)
+    }
+  }
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     setUploadedFiles(prev => [...prev, ...files])
@@ -83,50 +127,77 @@ export default function UploadPage() {
     setAiProcessing(true)
     
     try {
+      // Ensure user profile exists
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email
+        }, {
+          onConflict: 'id'
+        })
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+        alert('Error setting up your profile. Please try again.')
+        return
+      }
+
+      let successCount = 0
+      let errorCount = 0
+
       for (let i = 0; i < uploadedFiles.length; i++) {
         const file = uploadedFiles[i]
         
-        // Upload to Supabase Storage
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-        
-        const { error: uploadError } = await supabase.storage
-          .from('clothes')
-          .upload(fileName, file)
-        
-        if (uploadError) {
-          console.error('Upload error:', uploadError)
-          continue
-        }
+        try {
+          // Upload to Supabase Storage
+          const fileExt = file.name.split('.').pop()
+          const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+          
+          const { error: uploadError } = await supabase.storage
+            .from('clothes')
+            .upload(fileName, file)
+          
+          if (uploadError) {
+            console.error('Upload error:', uploadError)
+            errorCount++
+            continue
+          }
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('clothes')
-          .getPublicUrl(fileName)
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('clothes')
+            .getPublicUrl(fileName)
 
-        // Show AI processing status
-        console.log(`Analyzing clothing item ${i + 1}/${uploadedFiles.length} with AI...`)
-        
-        // Analyze the clothing item with AI
-        const analysis = await analyzeClothing(publicUrl)
-        
-        // Save to database
-        const { error: dbError } = await supabase
-          .from('clothes')
-          .insert({
-            user_id: user.id,
-            image_url: publicUrl,
-            category: (analysis as any).category,
-            color: (analysis as any).color,
-            material: (analysis as any).material,
-            embedding: (analysis as any).embedding
-          })
+          // Show AI processing status
+          console.log(`Analyzing clothing item ${i + 1}/${uploadedFiles.length} with AI...`)
+          
+          // Analyze the clothing item with AI
+          const analysis = await analyzeClothing(publicUrl)
+          
+          // Save to database
+          const { error: dbError } = await supabase
+            .from('clothes')
+            .insert({
+              user_id: user.id,
+              image_url: publicUrl,
+              category: (analysis as any).category,
+              color: (analysis as any).color,
+              material: (analysis as any).material,
+              embedding: (analysis as any).embedding
+            })
 
-        if (dbError) {
-          console.error('Database error:', dbError)
-          console.error('Database error details:', JSON.stringify(dbError, null, 2))
-        } else {
-          console.log(`AI analysis complete for item ${i + 1}:`, analysis)
+          if (dbError) {
+            console.error('Database error:', dbError)
+            console.error('Database error details:', JSON.stringify(dbError, null, 2))
+            errorCount++
+          } else {
+            console.log(`AI analysis complete for item ${i + 1}:`, analysis)
+            successCount++
+          }
+        } catch (itemError) {
+          console.error(`Error processing item ${i + 1}:`, itemError)
+          errorCount++
         }
       }
 
@@ -140,7 +211,14 @@ export default function UploadPage() {
         fileInputRef.current.value = ''
       }
       
-      alert(`Successfully uploaded and analyzed ${uploadedFiles.length} clothing items with AI!`)
+      // Show appropriate success/error message
+      if (successCount > 0 && errorCount === 0) {
+        alert(`Successfully uploaded and analyzed ${successCount} clothing items!`)
+      } else if (successCount > 0 && errorCount > 0) {
+        alert(`Successfully uploaded ${successCount} items, but ${errorCount} items failed. Check console for details.`)
+      } else {
+        alert(`Failed to upload all items. Check console for details.`)
+      }
     } catch (error) {
       console.error('Error uploading files:', error)
       alert('Error uploading files. Please try again.')
@@ -292,7 +370,21 @@ export default function UploadPage() {
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Wardrobe ({uploadedClothes.length} items)</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {uploadedClothes.map((item, index) => (
-                  <div key={item.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                  <div key={item.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm relative group">
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => confirmDeleteItem(item.id, item.category)}
+                      disabled={deletingItems.has(item.id)}
+                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                      title={`Delete ${item.category}`}
+                    >
+                      {deletingItems.has(item.id) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                    
                     <img
                       src={item.image_url}
                       alt={`Clothing item ${index + 1}`}
@@ -332,6 +424,7 @@ export default function UploadPage() {
               <li>• Include the full item in the frame</li>
               <li>• Upload one item per photo for best results</li>
               <li>• The AI will automatically categorize and tag your items</li>
+              <li>• Hover over items in your wardrobe to delete them</li>
             </ul>
           </div>
         </div>
