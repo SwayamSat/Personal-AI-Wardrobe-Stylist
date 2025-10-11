@@ -157,7 +157,16 @@ export default function Header() {
                   </div>
                 </Link>
                 <button
-                  onClick={() => supabase.auth.signOut()}
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase.auth.signOut()
+                      if (error) {
+                        console.error('Error signing out:', error)
+                      }
+                    } catch (err) {
+                      console.error('Unexpected error during sign out:', err)
+                    }
+                  }}
                   className="px-1.5 xs:px-2 sm:px-3 py-1.5 xs:py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all duration-300 active:scale-95"
                 >
                   <LogOut className="h-3 w-3 xs:h-4 xs:w-4" />

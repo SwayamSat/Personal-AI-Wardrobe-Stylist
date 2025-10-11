@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
 import { Upload, Sparkles, Shirt, Footprints, ShoppingBag, Watch, ArrowRight, Mail, LogIn } from 'lucide-react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import { LoginForm, SignupForm } from '@/components/AuthForms'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useTheme } from '@/lib/theme'
@@ -19,15 +18,15 @@ export default function HomePage() {
   const [clothingCount, setClothingCount] = useState(0)
   const [authMode, setAuthMode] = useState<AuthMode>(null)
   const { theme } = useTheme()
-  const searchParams = useSearchParams()
 
   // Handle URL parameters for auth modal
   useEffect(() => {
-    const authParam = searchParams.get('auth')
+    const urlParams = new URLSearchParams(window.location.search)
+    const authParam = urlParams.get('auth')
     if (authParam === 'login' || authParam === 'signup') {
       setAuthMode(authParam as AuthMode)
     }
-  }, [searchParams])
+  }, [])
 
   useEffect(() => {
     const getUser = async () => {
@@ -129,22 +128,30 @@ export default function HomePage() {
   }
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      })
+      
+      if (error) {
+        console.error('Error signing in with Google:', error)
       }
-    })
-    
-    if (error) {
-      console.error('Error signing in:', error)
+    } catch (err) {
+      console.error('Unexpected error during Google sign in:', err)
     }
   }
 
   const handleAuthSuccess = () => {
     setAuthMode(null)
     // Clear URL parameters
-    window.history.replaceState({}, '', '/')
+    try {
+      window.history.replaceState({}, '', '/')
+    } catch (err) {
+      console.error('Error clearing URL parameters:', err)
+    }
   }
 
   if (loading) {
@@ -172,7 +179,11 @@ export default function HomePage() {
             <button
               onClick={() => {
                 setAuthMode(null)
-                window.history.replaceState({}, '', '/')
+                try {
+                  window.history.replaceState({}, '', '/')
+                } catch (err) {
+                  console.error('Error clearing URL parameters:', err)
+                }
               }}
               className="absolute -top-2 -right-2 w-8 h-8 !bg-white dark:!bg-black border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300 transform hover:scale-110 z-10"
             >
@@ -193,7 +204,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-6 xs:py-8 sm:py-12">
+      <div className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-6 xs:py-8 sm:py-12">
         {user ? (
           // Authenticated user view
           <div className="text-center relative z-10">
@@ -396,7 +407,7 @@ export default function HomePage() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   )
 }
