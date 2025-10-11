@@ -6,6 +6,37 @@ import { User } from '@supabase/supabase-js'
 import { Upload, Loader2, Check, X, Shirt, Footprints, ShoppingBag, Watch } from 'lucide-react'
 import Link from 'next/link'
 
+// Custom Trouser Icon Component
+const TrouserIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Waistband - much wider */}
+    <path d="M4 2h16l-1 3H5L4 2z" />
+    {/* Left leg - much wider */}
+    <path d="M4 5v16l4-2h4v-12" />
+    {/* Right leg - much wider */}
+    <path d="M20 5v16l-4-2h-4v-12" />
+    {/* Belt loops - more visible */}
+    <circle cx="8" cy="4" r="1" />
+    <circle cx="16" cy="4" r="1" />
+    {/* Front pocket - much wider */}
+    <path d="M8 7h8v2h-8z" />
+    {/* Back pocket detail - wider */}
+    <path d="M6 9h3v1h-3z" />
+    <path d="M15 9h3v1h-3z" />
+    {/* Additional trouser details */}
+    <path d="M7 12h2v1h-2z" />
+    <path d="M15 12h2v1h-2z" />
+  </svg>
+)
+
 interface ClothingItem {
   id: string
   user_id: string
@@ -30,7 +61,7 @@ export default function UploadPage() {
 
   const categories = [
     { id: 'top', name: 'Tops', icon: Shirt, description: 'Shirts, blouses, t-shirts, sweaters' },
-    { id: 'bottom', name: 'Bottoms', icon: Shirt, description: 'Pants, jeans, shorts, skirts' },
+    { id: 'bottom', name: 'Bottoms', icon: TrouserIcon, description: 'Pants, jeans, shorts, skirts' },
     { id: 'shoe', name: 'Shoes', icon: Footprints, description: 'Sneakers, boots, heels, sandals' },
     { id: 'accessory', name: 'Accessories', icon: ShoppingBag, description: 'Bags, hats, jewelry, belts' }
   ]
@@ -287,7 +318,7 @@ export default function UploadPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Please sign in to upload clothes</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Please sign in to upload clothes</h1>
           <Link href="/" className="text-purple-600 hover:text-purple-700">Go back to home</Link>
         </div>
       </div>
@@ -295,33 +326,11 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <Link href="/" className="text-2xl font-bold text-gray-900">
-              Personal Wardrobe Stylist
-            </Link>
-            <div className="flex space-x-4">
-              <Link href="/outfits" className="text-gray-700 hover:text-gray-900">
-                View Outfits
-              </Link>
-              <button
-                onClick={() => supabase.auth.signOut()}
-                className="text-gray-700 hover:text-gray-900"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-background">
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Upload Your Clothes</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground mb-4">Upload Your Clothes</h1>
+          <p className="text-muted-foreground">
             Upload photos of your clothing items to build your digital wardrobe. 
             Our AI will analyze each item to help create perfect outfit combinations.
           </p>
@@ -330,7 +339,7 @@ export default function UploadPage() {
         {/* Category Selection */}
         {showCategorySelection && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">What are you uploading?</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">What are you uploading?</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {categories.map((category) => {
                 const IconComponent = category.icon
@@ -338,11 +347,11 @@ export default function UploadPage() {
                   <button
                     key={category.id}
                     onClick={() => handleCategorySelect(category.id)}
-                    className="p-6 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all text-left"
+                    className="p-6 bg-card rounded-lg shadow-sm border border-border hover:border-primary hover:shadow-md transition-all text-left"
                   >
                     <IconComponent className="h-8 w-8 text-purple-600 mb-3" />
-                    <h3 className="font-semibold text-gray-900 mb-2">{category.name}</h3>
-                    <p className="text-sm text-gray-600">{category.description}</p>
+                    <h3 className="font-semibold text-card-foreground mb-2">{category.name}</h3>
+                    <p className="text-sm text-muted-foreground">{category.description}</p>
                   </button>
                 )
               })}
@@ -354,18 +363,18 @@ export default function UploadPage() {
         {selectedCategory && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-foreground">
                 Upload {categories.find(c => c.id === selectedCategory)?.name}
               </h2>
               <button
                 onClick={resetUpload}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 p-8 text-center">
+            <div className="bg-card rounded-lg shadow-sm border-2 border-dashed border-border p-8 text-center">
               <input
                 type="file"
                 multiple
@@ -378,11 +387,11 @@ export default function UploadPage() {
                 htmlFor="file-upload"
                 className="cursor-pointer flex flex-col items-center"
               >
-                <Upload className="h-12 w-12 text-gray-400 mb-4" />
-                <span className="text-lg font-medium text-gray-900 mb-2">
+                <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                <span className="text-lg font-medium text-foreground mb-2">
                   Choose photos to upload
                 </span>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground">
                   PNG, JPG, WEBP up to 10MB each
                 </span>
               </label>
@@ -390,12 +399,12 @@ export default function UploadPage() {
 
             {files.length > 0 && (
               <div className="mt-4">
-                <h3 className="font-medium text-gray-900 mb-2">Selected files:</h3>
+                <h3 className="font-medium text-foreground mb-2">Selected files:</h3>
                 <div className="space-y-2">
                   {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                      <span className="text-sm text-gray-700">{file.name}</span>
-                      <span className="text-xs text-gray-500">
+                    <div key={index} className="flex items-center justify-between bg-muted p-3 rounded">
+                      <span className="text-sm text-foreground">{file.name}</span>
+                      <span className="text-xs text-muted-foreground">
                         {(file.size / 1024 / 1024).toFixed(1)} MB
                       </span>
                     </div>
@@ -444,11 +453,11 @@ export default function UploadPage() {
         {/* Uploaded Items */}
         {uploadedItems.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Wardrobe</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">Your Wardrobe</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {uploadedItems.map((item) => (
-                <div key={item.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <div className="aspect-square bg-gray-100">
+                <div key={item.id} className="bg-card rounded-lg shadow-sm overflow-hidden">
+                  <div className="aspect-square bg-muted">
                     <img
                       src={item.image_url}
                       alt={`${item.color} ${item.category}`}
@@ -457,17 +466,17 @@ export default function UploadPage() {
                   </div>
                   <div className="p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900 capitalize">
+                      <span className="text-sm font-medium text-card-foreground capitalize">
                         {item.category}
                       </span>
                       <button
                         onClick={() => deleteItem(item.id)}
-                        className="text-gray-400 hover:text-red-500"
+                        className="text-muted-foreground hover:text-red-500"
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="text-xs text-gray-600 space-y-1">
+                    <div className="text-xs text-muted-foreground space-y-1">
                       <div>Color: {item.color}</div>
                       <div>Material: {item.material}</div>
                       {item.style && <div>Style: {item.style}</div>}

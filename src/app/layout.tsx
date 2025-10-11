@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeProvider } from "@/lib/theme";
+import Header from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "Personal AI Wardrobe Stylist",
-  description: "Your personal AI stylist for creating outfits from your existing clothes",
+  title: "WardrobeAI - Personal AI Wardrobe Stylist",
+  description: "Transform your closet into a smart wardrobe with AI-powered outfit recommendations",
 };
 
 export default function RootLayout({
@@ -12,9 +14,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        {children}
+        <ThemeProvider>
+          <Header />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -401,6 +401,11 @@ Use only item IDs from the wardrobe list above.`;
       }
     }
     
+    if (!result) {
+      console.log('⚠️ No result after retries, using fallback');
+      return generateAdvancedFallbackRecommendations(clothingItems, occasion);
+    }
+    
     const response = await result.response;
     
     // Check if response is valid
@@ -567,14 +572,14 @@ function generateAdvancedFallbackRecommendations(
       // Select appropriate shoes and accessories
       const appropriateShoes = shoes.filter(shoe => {
         const shoeColor = shoe.color.toLowerCase();
-        return colorHarmonyRules[topColor]?.includes(shoeColor) || 
+        return (colorHarmonyRules as Record<string, string[]>)[topColor]?.includes(shoeColor) || 
                shoeColor.includes('black') || 
                shoeColor.includes('brown');
       });
       
       const appropriateAccessories = accessories.filter(acc => {
         const accColor = acc.color.toLowerCase();
-        return colorHarmonyRules[topColor]?.includes(accColor) || 
+        return (colorHarmonyRules as Record<string, string[]>)[topColor]?.includes(accColor) || 
                accColor.includes('black') || 
                accColor.includes('brown') ||
                accColor.includes('gold') ||

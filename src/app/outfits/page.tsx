@@ -82,14 +82,15 @@ export default function OutfitsPage() {
   }
 
   const generateOutfits = async () => {
-    if (!user) return
+    if (!user || clothingItems.length === 0) return
 
     setGenerating(true)
     setError(null)
 
     try {
-      console.log('👔 Generating outfit recommendations...')
+      console.log('👔 Generating AI-powered outfit recommendations...')
 
+      // Call the server-side API route that has access to environment variables
       const response = await fetch('/api/generate-outfits', {
         method: 'POST',
         headers: {
@@ -102,33 +103,23 @@ export default function OutfitsPage() {
       })
 
       if (!response.ok) {
-        // Check if response is JSON
         const contentType = response.headers.get('content-type')
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json()
           throw new Error(errorData.error || 'Failed to generate recommendations')
         } else {
-          // Handle HTML error responses
           const errorText = await response.text()
           console.error('❌ Non-JSON error response:', errorText)
           throw new Error(`Server error: ${response.status} ${response.statusText}`)
         }
       }
 
-      // Ensure response is JSON before parsing
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        const responseText = await response.text()
-        console.error('❌ Non-JSON response:', responseText)
-        throw new Error('Server returned non-JSON response')
-      }
-
       const data = await response.json()
 
       if (data.success && data.recommendations) {
-        console.log(`✅ Generated ${data.recommendations.length} outfit recommendations`)
         setOutfits(data.recommendations)
         setError(null)
+        console.log(`✅ Generated ${data.recommendations.length} outfit recommendations`)
       } else {
         throw new Error('No recommendations received')
       }
@@ -161,7 +152,7 @@ export default function OutfitsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Please sign in to view outfits</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Please sign in to view outfits</h1>
           <Link href="/" className="text-purple-600 hover:text-purple-700">Go back to home</Link>
         </div>
       </div>
@@ -169,41 +160,19 @@ export default function OutfitsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <Link href="/" className="text-2xl font-bold text-gray-900">
-              Personal Wardrobe Stylist
-            </Link>
-            <div className="flex space-x-4">
-              <Link href="/upload" className="text-gray-700 hover:text-gray-900">
-                Upload Clothes
-              </Link>
-              <button
-                onClick={() => supabase.auth.signOut()}
-                className="text-gray-700 hover:text-gray-900"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-background">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Your Outfit Recommendations</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-4">Your Outfit Recommendations</h1>
           
           {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700">Occasion:</label>
+              <label className="text-sm font-medium text-foreground">Occasion:</label>
               <select
                 value={selectedOccasion}
                 onChange={(e) => setSelectedOccasion(e.target.value as any)}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+                className="border border-border rounded-md px-3 py-1 text-sm bg-background text-foreground"
               >
                 <option value="casual">Casual</option>
                 <option value="office">Office</option>
@@ -256,11 +225,11 @@ export default function OutfitsPage() {
               const accessoryItem = outfit.accessory ? getItemById(outfit.accessory) : null
 
               return (
-                <div key={outfit.outfitId} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div key={outfit.outfitId} className="bg-card rounded-lg shadow-sm overflow-hidden">
                   {/* Outfit Images */}
-                  <div className="relative h-48 bg-gray-100">
+                  <div className="relative h-48 bg-muted">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="grid grid-cols-2 gap-1 w-full h-full p-2">
+                      <div className="grid grid-cols-2 grid-rows-2 gap-1 w-full h-full p-2">
                         {/* Top */}
                         {topItem && (
                           <div className="relative">
@@ -291,7 +260,7 @@ export default function OutfitsPage() {
                         
                         {/* Shoe (if available) */}
                         {shoeItem && (
-                          <div className="relative col-span-2">
+                          <div className="relative">
                             <img
                               src={shoeItem.image_url}
                               alt={`${shoeItem.color} ${shoeItem.category}`}
@@ -299,6 +268,20 @@ export default function OutfitsPage() {
                             />
                             <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
                               Shoes
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Accessory (if available) */}
+                        {accessoryItem && (
+                          <div className="relative">
+                            <img
+                              src={accessoryItem.image_url}
+                              alt={`${accessoryItem.color} ${accessoryItem.category}`}
+                              className="w-full h-full object-cover rounded"
+                            />
+                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                              Accessory
                             </div>
                           </div>
                         )}
@@ -313,10 +296,10 @@ export default function OutfitsPage() {
 
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-medium text-gray-900">Outfit</h3>
+                      <h3 className="text-lg font-medium text-card-foreground">Outfit</h3>
                       <button
                         onClick={() => likeOutfit(outfit.outfitId)}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        className="text-muted-foreground hover:text-red-500 transition-colors"
                       >
                         <Heart className="h-5 w-5" />
                       </button>
@@ -329,7 +312,7 @@ export default function OutfitsPage() {
                             className="w-3 h-3 rounded-full border border-gray-300"
                             style={{ backgroundColor: topItem.color }}
                           ></div>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-muted-foreground">
                             {topItem.color} {topItem.category}
                           </span>
                         </div>
@@ -340,7 +323,7 @@ export default function OutfitsPage() {
                             className="w-3 h-3 rounded-full border border-gray-300"
                             style={{ backgroundColor: bottomItem.color }}
                           ></div>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-muted-foreground">
                             {bottomItem.color} {bottomItem.category}
                           </span>
                         </div>
@@ -351,8 +334,19 @@ export default function OutfitsPage() {
                             className="w-3 h-3 rounded-full border border-gray-300"
                             style={{ backgroundColor: shoeItem.color }}
                           ></div>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-muted-foreground">
                             {shoeItem.color} {shoeItem.category}
+                          </span>
+                        </div>
+                      )}
+                      {accessoryItem && (
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-3 h-3 rounded-full border border-gray-300"
+                            style={{ backgroundColor: accessoryItem.color }}
+                          ></div>
+                          <span className="text-sm text-muted-foreground">
+                            {accessoryItem.color} {accessoryItem.category}
                           </span>
                         </div>
                       )}
@@ -361,14 +355,14 @@ export default function OutfitsPage() {
                     <div className="mt-3 space-y-2">
                       {/* Color Scheme */}
                       {outfit.colorScheme && (
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-muted-foreground">
                           <strong>Color Scheme:</strong> {outfit.colorScheme}
                         </div>
                       )}
                       
                       {/* Style Notes */}
                       {outfit.styleNotes && outfit.styleNotes.length > 0 && (
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-muted-foreground">
                           <strong>Style Notes:</strong>
                           <ul className="list-disc list-inside ml-2 mt-1">
                             {outfit.styleNotes.map((note, index) => (
@@ -379,7 +373,7 @@ export default function OutfitsPage() {
                       )}
                       
                       {/* Reasoning */}
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-muted-foreground">
                         <strong>Analysis:</strong> {outfit.reasoning}
                       </div>
                       
@@ -395,7 +389,7 @@ export default function OutfitsPage() {
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           AI Generated
                         </span>
                       </div>
@@ -409,9 +403,9 @@ export default function OutfitsPage() {
 
         {outfits.length === 0 && clothingItems.length > 0 && !generating && (
           <div className="text-center py-12">
-            <Sparkles className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No outfits generated yet</h3>
-            <p className="mt-1 text-sm text-gray-500">Click "Generate Outfits" to see recommendations</p>
+            <Sparkles className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-2 text-sm font-medium text-foreground">No outfits generated yet</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Click "Generate Outfits" to see recommendations</p>
           </div>
         )}
       </main>
