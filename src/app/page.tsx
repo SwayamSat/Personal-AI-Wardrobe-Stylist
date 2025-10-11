@@ -133,14 +133,12 @@ function HomePageContent() {
 
   const signInWithGoogle = async () => {
     try {
-      const redirectUrl = process.env.NEXT_PUBLIC_APP_URL 
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
-        : `${window.location.origin}/auth/callback`
-      
+      // Use Supabase's default redirect URL instead of custom one
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl
+          // Let Supabase handle the redirect URL automatically
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       })
       
