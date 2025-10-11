@@ -3,25 +3,42 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
-import { ClothingItem } from '@/lib/supabaseClient'
-import { Shirt, Loader2, RefreshCw, Heart, Sparkles } from 'lucide-react'
+import { Loader2, RefreshCw, Heart, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 
-interface Outfit {
+interface ClothingItem {
   id: string
-  top: ClothingItem
-  bottom: ClothingItem
-  shoe?: ClothingItem
+  user_id: string
+  image_url: string
+  category: 'top' | 'bottom' | 'shoe' | 'accessory'
+  color: string
+  material: string
+  style: string
+  created_at: string
+}
+
+interface OutfitRecommendation {
+  outfitId: string
+  top: string
+  bottom: string
+  shoe?: string
+  accessory?: string
   score: number
+  reasoning: string
+  occasion: string
+  colorScheme?: string
+  styleNotes?: string[]
+  confidence?: number
 }
 
 export default function OutfitsPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [clothes, setClothes] = useState<ClothingItem[]>([])
-  const [outfits, setOutfits] = useState<Outfit[]>([])
+  const [clothingItems, setClothingItems] = useState<ClothingItem[]>([])
+  const [outfits, setOutfits] = useState<OutfitRecommendation[]>([])
   const [generating, setGenerating] = useState(false)
-  const [occasion, setOccasion] = useState<'casual' | 'office' | 'party' | 'formal'>('casual')
+  const [selectedOccasion, setSelectedOccasion] = useState<'casual' | 'office' | 'party' | 'formal'>('casual')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const getUser = async () => {
@@ -31,7 +48,6 @@ export default function OutfitsPage() {
     }
     getUser()
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setUser(session?.user ?? null)
@@ -44,11 +60,11 @@ export default function OutfitsPage() {
 
   useEffect(() => {
     if (user) {
-      fetchClothes()
+      fetchClothingItems()
     }
   }, [user])
 
-  const fetchClothes = async () => {
+  const fetchClothingItems = async () => {
     if (!user) return
 
     const { data, error } = await supabase
@@ -62,242 +78,75 @@ export default function OutfitsPage() {
       return
     }
 
-    setClothes(data || [])
+    setClothingItems(data || [])
   }
 
   const generateOutfits = async () => {
-    if (!user || clothes.length === 0) return
+    if (!user) return
 
     setGenerating(true)
-    
+    setError(null)
+
     try {
-      // Filter clothes by category
-      const tops = clothes.filter(item => item.category === 'top')
-      const bottoms = clothes.filter(item => item.category === 'bottom')
-      const shoes = clothes.filter(item => item.category === 'shoe')
+      console.log('👔 Generating outfit recommendations...')
 
-      if (tops.length === 0 || bottoms.length === 0) {
-        alert('You need at least one top and one bottom to generate outfits!')
-        setGenerating(false)
-        return
-      }
+      const response = await fetch('/api/generate-outfits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          occasion: selectedOccasion
+        })
+      })
 
-      const generatedOutfits: Outfit[] = []
-
-      // Generate outfit combinations
-      for (const top of tops) {
-        for (const bottom of bottoms) {
-          // Find best matching shoe
-          let bestShoe: ClothingItem | undefined
-          let bestScore = 0
-
-          for (const shoe of shoes) {
-            const score = calculateOutfitScore(top, bottom, shoe, occasion)
-            if (score > bestScore) {
-              bestScore = score
-              bestShoe = shoe
-            }
-          }
-
-          generatedOutfits.push({
-            id: `${top.id}-${bottom.id}-${bestShoe?.id || 'no-shoe'}`,
-            top,
-            bottom,
-            shoe: bestShoe,
-            score: bestScore
-          })
+      if (!response.ok) {
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to generate recommendations')
+        } else {
+          // Handle HTML error responses
+          const errorText = await response.text()
+          console.error('❌ Non-JSON error response:', errorText)
+          throw new Error(`Server error: ${response.status} ${response.statusText}`)
         }
       }
 
-      // Sort by score and take top 12
-      generatedOutfits.sort((a, b) => b.score - a.score)
-      setOutfits(generatedOutfits.slice(0, 12))
+      // Ensure response is JSON before parsing
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text()
+        console.error('❌ Non-JSON response:', responseText)
+        throw new Error('Server returned non-JSON response')
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.recommendations) {
+        console.log(`✅ Generated ${data.recommendations.length} outfit recommendations`)
+        setOutfits(data.recommendations)
+        setError(null)
+      } else {
+        throw new Error('No recommendations received')
+      }
     } catch (error) {
-      console.error('Error generating outfits:', error)
-      alert('Error generating outfits. Please try again.')
+      console.error('❌ Error generating outfits:', error)
+      setError(`Failed to generate outfits: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setGenerating(false)
     }
   }
 
-  const calculateOutfitScore = (top: ClothingItem, bottom: ClothingItem, shoe?: ClothingItem, occasion?: string): number => {
-    let score = 0
-
-    // Enhanced color harmony scoring
-    const colorScore = calculateColorHarmony(top.color, bottom.color, shoe?.color)
-    score += colorScore * 0.4 // 40% weight for color harmony
-
-    // Pattern compatibility
-    const patternScore = calculatePatternCompatibility(top.pattern || 'solid', bottom.pattern || 'solid', shoe?.pattern || 'solid')
-    score += patternScore * 0.2 // 20% weight for pattern compatibility
-
-    // Style consistency
-    const styleScore = calculateStyleConsistency(top.style || 'casual', bottom.style || 'casual', shoe?.style || 'casual')
-    score += styleScore * 0.2 // 20% weight for style consistency
-
-    // Occasion appropriateness
-    const occasionScore = calculateOccasionScore(top, bottom, shoe, occasion)
-    score += occasionScore * 0.2 // 20% weight for occasion appropriateness
-
-    return Math.min(score, 1) // Cap at 1
-  }
-
-  const calculateColorHarmony = (topColor: string, bottomColor: string, shoeColor?: string): number => {
-    let score = 0
-
-    // Monochrome (same color family)
-    if (topColor === bottomColor) {
-      score += 0.8
-    }
-
-    // Complementary colors
-    const complementaryPairs = [
-      ['red', 'green'], ['blue', 'orange'], ['yellow', 'purple'],
-      ['pink', 'green'], ['black', 'white'], ['navy', 'orange'],
-      ['burgundy', 'forest'], ['coral', 'teal']
-    ]
-    
-    for (const [color1, color2] of complementaryPairs) {
-      if ((topColor === color1 && bottomColor === color2) || 
-          (topColor === color2 && bottomColor === color1)) {
-        score += 0.9
-        break
-      }
-    }
-
-    // Analogous colors (adjacent on color wheel)
-    const analogousGroups = [
-      ['red', 'pink', 'orange'], ['blue', 'purple', 'pink'],
-      ['green', 'blue', 'teal'], ['yellow', 'orange', 'red'],
-      ['purple', 'blue', 'indigo'], ['green', 'yellow', 'lime']
-    ]
-    
-    for (const group of analogousGroups) {
-      if (group.includes(topColor) && group.includes(bottomColor)) {
-        score += 0.7
-        break
-      }
-    }
-
-    // Neutral combinations
-    const neutrals = ['black', 'white', 'gray', 'brown', 'beige', 'navy']
-    if (neutrals.includes(topColor) || neutrals.includes(bottomColor)) {
-      score += 0.6
-    }
-
-    // Shoe color matching
-    if (shoeColor) {
-      if (shoeColor === topColor || shoeColor === bottomColor) {
-        score += 0.3
-      } else if (neutrals.includes(shoeColor)) {
-        score += 0.2
-      }
-    }
-
-    return Math.min(score, 1)
-  }
-
-  const calculatePatternCompatibility = (topPattern?: string, bottomPattern?: string, shoePattern?: string): number => {
-    let score = 0.5 // Base score
-
-    // If both have patterns, check compatibility
-    if (topPattern && bottomPattern && topPattern !== 'solid' && bottomPattern !== 'solid') {
-      // Same pattern
-      if (topPattern === bottomPattern) {
-        score = 0.3 // Can be overwhelming
-      }
-      // Complementary patterns
-      else if ((topPattern === 'striped' && bottomPattern === 'solid') ||
-               (topPattern === 'solid' && bottomPattern === 'striped') ||
-               (topPattern === 'floral' && bottomPattern === 'solid') ||
-               (topPattern === 'solid' && bottomPattern === 'floral')) {
-        score = 0.8
-      }
-      // Conflicting patterns
-      else if ((topPattern === 'striped' && bottomPattern === 'plaid') ||
-               (topPattern === 'plaid' && bottomPattern === 'striped')) {
-        score = 0.2
-      }
-    }
-    // One patterned, one solid
-    else if ((topPattern && topPattern !== 'solid' && bottomPattern === 'solid') ||
-             (bottomPattern && bottomPattern !== 'solid' && topPattern === 'solid')) {
-      score = 0.9
-    }
-    // Both solid
-    else if (topPattern === 'solid' && bottomPattern === 'solid') {
-      score = 0.7
-    }
-
-    return Math.min(score, 1)
-  }
-
-  const calculateStyleConsistency = (topStyle?: string, bottomStyle?: string, shoeStyle?: string): number => {
-    let score = 0.5 // Base score
-
-    const styles = [topStyle, bottomStyle, shoeStyle].filter(Boolean)
-    
-    if (styles.length === 0) return score
-
-    // Count style matches
-    const styleCounts: { [key: string]: number } = {}
-    styles.forEach(style => {
-      styleCounts[style!] = (styleCounts[style!] || 0) + 1
-    })
-
-    // Find most common style
-    const maxCount = Math.max(...Object.values(styleCounts))
-    const consistencyRatio = maxCount / styles.length
-
-    score = consistencyRatio * 0.8 + 0.2 // Scale to 0.2-1.0
-
-    return Math.min(score, 1)
-  }
-
-  const calculateOccasionScore = (top: ClothingItem, bottom: ClothingItem, shoe?: ClothingItem, occasion?: string): number => {
-    let score = 0.5 // Base score
-
-    if (!occasion) return score
-
-    const allItems = [top, bottom, shoe].filter(Boolean)
-    const allColors = allItems.map(item => item!.color)
-    const allStyles = allItems.map(item => item!.style || 'casual').filter(Boolean)
-    const allMaterials = allItems.map(item => item!.material).filter(Boolean)
-
-    switch (occasion) {
-      case 'casual':
-        if (allMaterials.includes('cotton') || allMaterials.includes('denim')) score += 0.3
-        if (allStyles.includes('casual') || allStyles.includes('sporty')) score += 0.3
-        if (allColors.includes('blue') || allColors.includes('white')) score += 0.2
-        break
-
-      case 'office':
-        if (allColors.includes('white') || allColors.includes('blue') || allColors.includes('black')) score += 0.3
-        if (allStyles.includes('formal') || allStyles.includes('modern')) score += 0.3
-        if (allMaterials.includes('cotton') || allMaterials.includes('wool')) score += 0.2
-        if (shoe && shoe.color === 'black') score += 0.2
-        break
-
-      case 'party':
-        if (allColors.includes('black') || allColors.includes('red') || allColors.includes('purple')) score += 0.3
-        if (allStyles.includes('formal') || allStyles.includes('modern')) score += 0.3
-        if (allMaterials.includes('silk') || allMaterials.includes('cashmere')) score += 0.2
-        break
-
-      case 'formal':
-        if (allColors.includes('black') || allColors.includes('white') || allColors.includes('navy')) score += 0.3
-        if (allStyles.includes('formal')) score += 0.4
-        if (allMaterials.includes('wool') || allMaterials.includes('silk')) score += 0.2
-        if (shoe && shoe.color === 'black') score += 0.1
-        break
-    }
-
-    return Math.min(score, 1)
+  const getItemById = (itemId: string) => {
+    return clothingItems.find(item => item.id === itemId)
   }
 
   const likeOutfit = async (outfitId: string) => {
-    // In a real app, you'd save this to the database
     console.log('Liked outfit:', outfitId)
+    // In a real app, you'd save this to the database
   }
 
   if (loading) {
@@ -313,9 +162,7 @@ export default function OutfitsPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Please sign in to view outfits</h1>
-          <Link href="/" className="text-purple-600 hover:text-purple-700">
-            Go back to home
-          </Link>
+          <Link href="/" className="text-purple-600 hover:text-purple-700">Go back to home</Link>
         </div>
       </div>
     )
@@ -328,13 +175,10 @@ export default function OutfitsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <Link href="/" className="text-2xl font-bold text-gray-900">
-              AI Wardrobe Stylist
+              Personal Wardrobe Stylist
             </Link>
             <div className="flex space-x-4">
-              <Link
-                href="/upload"
-                className="text-gray-700 hover:text-gray-900"
-              >
+              <Link href="/upload" className="text-gray-700 hover:text-gray-900">
                 Upload Clothes
               </Link>
               <button
@@ -357,8 +201,8 @@ export default function OutfitsPage() {
             <div className="flex items-center space-x-4">
               <label className="text-sm font-medium text-gray-700">Occasion:</label>
               <select
-                value={occasion}
-                onChange={(e) => setOccasion(e.target.value as any)}
+                value={selectedOccasion}
+                onChange={(e) => setSelectedOccasion(e.target.value as any)}
                 className="border border-gray-300 rounded-md px-3 py-1 text-sm"
               >
                 <option value="casual">Casual</option>
@@ -370,7 +214,7 @@ export default function OutfitsPage() {
             
             <button
               onClick={generateOutfits}
-              disabled={generating || clothes.length === 0}
+              disabled={generating || clothingItems.length === 0}
               className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generating ? (
@@ -387,7 +231,13 @@ export default function OutfitsPage() {
             </button>
           </div>
 
-          {clothes.length === 0 && (
+          {error && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
+
+          {clothingItems.length === 0 && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-yellow-800">
                 You haven't uploaded any clothes yet. <Link href="/upload" className="text-purple-600 hover:text-purple-700 underline">Upload some clothes</Link> to get started!
@@ -399,121 +249,167 @@ export default function OutfitsPage() {
         {/* Outfits Grid */}
         {outfits.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {outfits.map((outfit) => (
-              <div key={outfit.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                {/* Outfit Images */}
-                <div className="relative h-48 bg-gray-100">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="grid grid-cols-2 gap-1 w-full h-full p-2">
-                      {/* Top */}
-                      <div className="relative">
-                        <img
-                          src={outfit.top.image_url}
-                          alt={`${outfit.top.color} ${outfit.top.category}`}
-                          className="w-full h-full object-cover rounded"
-                        />
-                        <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                          Top
-                        </div>
-                      </div>
-                      
-                      {/* Bottom */}
-                      <div className="relative">
-                        <img
-                          src={outfit.bottom.image_url}
-                          alt={`${outfit.bottom.color} ${outfit.bottom.category}`}
-                          className="w-full h-full object-cover rounded"
-                        />
-                        <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                          Bottom
-                        </div>
-                      </div>
-                      
-                      {/* Shoe (if available) */}
-                      {outfit.shoe && (
-                        <div className="relative col-span-2">
-                          <img
-                            src={outfit.shoe.image_url}
-                            alt={`${outfit.shoe.color} ${outfit.shoe.category}`}
-                            className="w-full h-full object-cover rounded"
-                          />
-                          <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                            Shoes
+            {outfits.map((outfit) => {
+              const topItem = getItemById(outfit.top)
+              const bottomItem = getItemById(outfit.bottom)
+              const shoeItem = outfit.shoe ? getItemById(outfit.shoe) : null
+              const accessoryItem = outfit.accessory ? getItemById(outfit.accessory) : null
+
+              return (
+                <div key={outfit.outfitId} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  {/* Outfit Images */}
+                  <div className="relative h-48 bg-gray-100">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="grid grid-cols-2 gap-1 w-full h-full p-2">
+                        {/* Top */}
+                        {topItem && (
+                          <div className="relative">
+                            <img
+                              src={topItem.image_url}
+                              alt={`${topItem.color} ${topItem.category}`}
+                              className="w-full h-full object-cover rounded"
+                            />
+                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                              Top
+                            </div>
                           </div>
+                        )}
+                        
+                        {/* Bottom */}
+                        {bottomItem && (
+                          <div className="relative">
+                            <img
+                              src={bottomItem.image_url}
+                              alt={`${bottomItem.color} ${bottomItem.category}`}
+                              className="w-full h-full object-cover rounded"
+                            />
+                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                              Bottom
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Shoe (if available) */}
+                        {shoeItem && (
+                          <div className="relative col-span-2">
+                            <img
+                              src={shoeItem.image_url}
+                              alt={`${shoeItem.color} ${shoeItem.category}`}
+                              className="w-full h-full object-cover rounded"
+                            />
+                            <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                              Shoes
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Match Score Badge */}
+                    <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                      {outfit.score}% Match
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-medium text-gray-900">Outfit</h3>
+                      <button
+                        onClick={() => likeOutfit(outfit.outfitId)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <Heart className="h-5 w-5" />
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {topItem && (
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-3 h-3 rounded-full border border-gray-300"
+                            style={{ backgroundColor: topItem.color }}
+                          ></div>
+                          <span className="text-sm text-gray-600">
+                            {topItem.color} {topItem.category}
+                          </span>
+                        </div>
+                      )}
+                      {bottomItem && (
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-3 h-3 rounded-full border border-gray-300"
+                            style={{ backgroundColor: bottomItem.color }}
+                          ></div>
+                          <span className="text-sm text-gray-600">
+                            {bottomItem.color} {bottomItem.category}
+                          </span>
+                        </div>
+                      )}
+                      {shoeItem && (
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-3 h-3 rounded-full border border-gray-300"
+                            style={{ backgroundColor: shoeItem.color }}
+                          ></div>
+                          <span className="text-sm text-gray-600">
+                            {shoeItem.color} {shoeItem.category}
+                          </span>
                         </div>
                       )}
                     </div>
-                  </div>
-                  
-                  {/* Match Score Badge */}
-                  <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
-                    {Math.round(outfit.score * 100)}% Match
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-medium text-gray-900">Outfit</h3>
-                    <button
-                      onClick={() => likeOutfit(outfit.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <Heart className="h-5 w-5" />
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <div 
-                        className="w-3 h-3 rounded-full border border-gray-300"
-                        style={{ backgroundColor: outfit.top.color }}
-                      ></div>
-                      <span className="text-sm text-gray-600">
-                        {outfit.top.color} {outfit.top.category}
-                        {(outfit.top as any).pattern && (outfit.top as any).pattern !== 'solid' && ` (${(outfit.top as any).pattern})`}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div 
-                        className="w-3 h-3 rounded-full border border-gray-300"
-                        style={{ backgroundColor: outfit.bottom.color }}
-                      ></div>
-                      <span className="text-sm text-gray-600">
-                        {outfit.bottom.color} {outfit.bottom.category}
-                        {(outfit.bottom as any).pattern && (outfit.bottom as any).pattern !== 'solid' && ` (${(outfit.bottom as any).pattern})`}
-                      </span>
-                    </div>
-                    {outfit.shoe && (
-                      <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-3 h-3 rounded-full border border-gray-300"
-                          style={{ backgroundColor: outfit.shoe.color }}
-                        ></div>
-                        <span className="text-sm text-gray-600">
-                          {outfit.shoe.color} {outfit.shoe.category}
-                          {(outfit.shoe as any).pattern && (outfit.shoe as any).pattern !== 'solid' && ` (${(outfit.shoe as any).pattern})`}
+                    
+                    <div className="mt-3 space-y-2">
+                      {/* Color Scheme */}
+                      {outfit.colorScheme && (
+                        <div className="text-xs text-gray-600">
+                          <strong>Color Scheme:</strong> {outfit.colorScheme}
+                        </div>
+                      )}
+                      
+                      {/* Style Notes */}
+                      {outfit.styleNotes && outfit.styleNotes.length > 0 && (
+                        <div className="text-xs text-gray-600">
+                          <strong>Style Notes:</strong>
+                          <ul className="list-disc list-inside ml-2 mt-1">
+                            {outfit.styleNotes.map((note, index) => (
+                              <li key={index}>{note}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {/* Reasoning */}
+                      <div className="text-xs text-gray-600">
+                        <strong>Analysis:</strong> {outfit.reasoning}
+                      </div>
+                      
+                      {/* Confidence and Occasion */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-purple-600 font-medium">
+                            {outfit.occasion}
+                          </span>
+                          {outfit.confidence && (
+                            <span className="text-xs text-green-600 font-medium">
+                              {(outfit.confidence * 100).toFixed(0)}% confidence
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          AI Generated
                         </span>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs text-gray-500">
-                      Style: {(outfit.top as any).style || 'casual'}
-                    </span>
-                    <span className="text-xs text-purple-600 font-medium">
-                      {occasion}
-                    </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
-        {outfits.length === 0 && clothes.length > 0 && !generating && (
+        {outfits.length === 0 && clothingItems.length > 0 && !generating && (
           <div className="text-center py-12">
-            <Shirt className="mx-auto h-12 w-12 text-gray-400" />
+            <Sparkles className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No outfits generated yet</h3>
             <p className="mt-1 text-sm text-gray-500">Click "Generate Outfits" to see recommendations</p>
           </div>

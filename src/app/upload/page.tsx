@@ -1,30 +1,38 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
-import { analyzeClothingComprehensive } from '@/lib/embeddings'
-import { Upload, X, Check, Loader2, Shirt, Sparkles, Trash2, Footprints, ShoppingBag, Watch } from 'lucide-react'
+import { Upload, Loader2, Check, X, Shirt, Footprints, ShoppingBag, Watch } from 'lucide-react'
 import Link from 'next/link'
+
+interface ClothingItem {
+  id: string
+  user_id: string
+  image_url: string
+  category: 'top' | 'bottom' | 'shoe' | 'accessory'
+  color: string
+  material: string
+  style?: string
+  created_at: string
+}
 
 export default function UploadPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [previewUrls, setPreviewUrls] = useState<string[]>([])
-  const [uploadedClothes, setUploadedClothes] = useState<any[]>([])
-  const [aiProcessing, setAiProcessing] = useState(false)
-  const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set())
+  const [files, setFiles] = useState<File[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [showCategorySelection, setShowCategorySelection] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showCategorySelection, setShowCategorySelection] = useState(true)
+  const [uploadedItems, setUploadedItems] = useState<ClothingItem[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  const clothingCategories = [
-    { id: 'top', name: 'Tops', icon: Shirt, description: 'Shirts, blouses, t-shirts, sweaters, jackets' },
-    { id: 'bottom', name: 'Bottoms', icon: Shirt, description: 'Pants, jeans, shorts, skirts, leggings' },
-    { id: 'shoe', name: 'Shoes', icon: Footprints, description: 'Sneakers, boots, heels, sandals, loafers' },
-    { id: 'accessory', name: 'Accessories', icon: ShoppingBag, description: 'Bags, hats, jewelry, belts, scarves' }
+  const categories = [
+    { id: 'top', name: 'Tops', icon: Shirt, description: 'Shirts, blouses, t-shirts, sweaters' },
+    { id: 'bottom', name: 'Bottoms', icon: Shirt, description: 'Pants, jeans, shorts, skirts' },
+    { id: 'shoe', name: 'Shoes', icon: Footprints, description: 'Sneakers, boots, heels, sandals' },
+    { id: 'accessory', name: 'Accessories', icon: ShoppingBag, description: 'Bags, hats, jewelry, belts' }
   ]
 
   useEffect(() => {
@@ -35,7 +43,6 @@ export default function UploadPage() {
     }
     getUser()
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setUser(session?.user ?? null)
@@ -48,11 +55,11 @@ export default function UploadPage() {
 
   useEffect(() => {
     if (user) {
-      fetchClothes()
+      fetchUploadedItems()
     }
   }, [user])
 
-  const fetchClothes = async () => {
+  const fetchUploadedItems = async () => {
     if (!user) return
 
     const { data, error } = await supabase
@@ -62,130 +69,60 @@ export default function UploadPage() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching clothes:', error)
+      console.error('Error fetching items:', error)
       return
     }
 
-    setUploadedClothes(data || [])
-  }
-
-  const deleteClothingItem = async (itemId: string) => {
-    if (!user) return
-
-    // Add to deleting set to show loading state
-    setDeletingItems(prev => new Set(prev).add(itemId))
-
-    try {
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('clothes')
-        .delete()
-        .eq('id', itemId)
-        .eq('user_id', user.id)
-
-      if (dbError) {
-        console.error('Error deleting clothing item:', dbError)
-        alert('Error deleting item. Please try again.')
-        return
-      }
-
-      // Remove from local state
-      setUploadedClothes(prev => prev.filter(item => item.id !== itemId))
-      
-      console.log('Clothing item deleted successfully')
-    } catch (error) {
-      console.error('Error deleting clothing item:', error)
-      alert('Error deleting item. Please try again.')
-    } finally {
-      // Remove from deleting set
-      setDeletingItems(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(itemId)
-        return newSet
-      })
-    }
-  }
-
-  const confirmDeleteItem = (itemId: string, itemCategory: string) => {
-    if (window.confirm(`Are you sure you want to delete this ${itemCategory} from your wardrobe?`)) {
-      deleteClothingItem(itemId)
-    }
+    setUploadedItems(data || [])
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    setUploadedFiles(files) // Replace instead of append for category-specific uploads
-    
-    // Create preview URLs
-    const newPreviewUrls = files.map(file => URL.createObjectURL(file))
-    setPreviewUrls(newPreviewUrls)
+    const selectedFiles = Array.from(event.target.files || [])
+    setFiles(selectedFiles)
+    setError(null)
   }
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId)
     setShowCategorySelection(false)
-    // Trigger file input
-    if (fileInputRef.current) {
-      fileInputRef.current.click()
-    }
   }
 
   const resetUpload = () => {
+    setFiles([])
     setSelectedCategory(null)
-    setUploadedFiles([])
-    setPreviewUrls([])
-    setShowCategorySelection(false)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index))
-    setPreviewUrls(prev => {
-      URL.revokeObjectURL(prev[index])
-      return prev.filter((_, i) => i !== index)
-    })
+    setShowCategorySelection(true)
+    setError(null)
+    setSuccess(null)
   }
 
   const uploadFiles = async () => {
-    if (!user || uploadedFiles.length === 0 || !selectedCategory) return
+    if (!user || !selectedCategory || files.length === 0) return
 
     setUploading(true)
-    setAiProcessing(true)
-    
+    setError(null)
+    setSuccess(null)
+
     try {
       // Ensure user profile exists
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email
-        }, {
-          onConflict: 'id'
-        })
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        alert('Error setting up your profile. Please try again.')
-        return
-      }
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        email: user.email,
+        created_at: new Date().toISOString()
+      })
 
       let successCount = 0
       let errorCount = 0
 
-      for (let i = 0; i < uploadedFiles.length; i++) {
-        const file = uploadedFiles[i]
-        
+      for (const file of files) {
         try {
-          // Upload to Supabase Storage
+          // Upload to storage
           const fileExt = file.name.split('.').pop()
           const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
           
           const { error: uploadError } = await supabase.storage
             .from('clothes')
             .upload(fileName, file)
-          
+
           if (uploadError) {
             console.error('Upload error:', uploadError)
             errorCount++
@@ -197,58 +134,144 @@ export default function UploadPage() {
             .from('clothes')
             .getPublicUrl(fileName)
 
-          // Show AI processing status
-          console.log(`Analyzing ${selectedCategory} item ${i + 1}/${uploadedFiles.length} for pattern and color...`)
-          
-          // Analyze the clothing item for pattern and color (category is already known)
-          const analysis = await analyzeClothingComprehensive(publicUrl)
-          
-          // Save to database with the selected category
-          const { error: dbError } = await supabase
-            .from('clothes')
-            .insert({
-              user_id: user.id,
-              image_url: publicUrl,
-              category: selectedCategory, // Use selected category instead of AI classification
-              color: (analysis as any).color,
-              material: (analysis as any).material,
-              embedding: (analysis as any).embedding
-            })
+          // Convert image to base64 for analysis
+          const response = await fetch(publicUrl)
+          const blob = await response.blob()
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
 
-          if (dbError) {
-            console.error('Database error:', dbError)
-            console.error('Database error details:', JSON.stringify(dbError, null, 2))
-            errorCount++
-          } else {
-            console.log(`AI analysis complete for ${selectedCategory} item ${i + 1}:`, analysis)
-            successCount++
+          // Analyze with professional Gemini service
+          console.log('🔍 Professional analysis starting...')
+          const analysisResponse = await fetch('/api/analyze-clothing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64 })
+          })
+
+          let analysis = {
+            category: selectedCategory as 'top' | 'bottom' | 'shoe' | 'accessory',
+            color: 'black',
+            material: 'cotton',
+            style: 'casual',
+            confidence: 0.5
           }
-        } catch (itemError) {
-          console.error(`Error processing item ${i + 1}:`, itemError)
+
+          if (analysisResponse.ok) {
+            // Check if response is JSON before parsing
+            const contentType = analysisResponse.headers.get('content-type')
+            if (contentType && contentType.includes('application/json')) {
+              const analysisData = await analysisResponse.json()
+              if (analysisData.success) {
+                analysis = {
+                  category: selectedCategory as 'top' | 'bottom' | 'shoe' | 'accessory',
+                  color: analysisData.analysis.color,
+                  material: analysisData.analysis.material,
+                  style: analysisData.analysis.style,
+                  confidence: analysisData.analysis.confidence
+                }
+                console.log('✅ Professional analysis:', analysis)
+                if (analysisData.fallback) {
+                  console.log('⚠️ Used fallback analysis due to:', analysisData.error)
+                }
+              }
+            } else {
+              console.log('⚠️ Non-JSON response from analysis API')
+            }
+          } else {
+            console.log('⚠️ Analysis failed with status:', analysisResponse.status)
+          }
+
+          // Save to database with fallback for missing columns
+          const insertData = {
+            user_id: user.id,
+            image_url: publicUrl,
+            category: analysis.category,
+            color: analysis.color,
+            material: analysis.material
+          }
+
+          // Try to add style if the column exists
+          try {
+            const { error: dbError } = await supabase
+              .from('clothes')
+              .insert({
+                ...insertData,
+                style: analysis.style
+              })
+
+            if (dbError) {
+              console.log('⚠️ Style column might not exist, trying without it...')
+              
+              // Fallback: insert without style column
+              const { error: fallbackError } = await supabase
+                .from('clothes')
+                .insert(insertData)
+
+              if (fallbackError) {
+                console.error('❌ Database error:', fallbackError)
+                console.error('📊 Insert data:', insertData)
+                errorCount++
+              } else {
+                successCount++
+                console.log(`✅ Uploaded ${file.name} (without style)`)
+              }
+            } else {
+              successCount++
+              console.log(`✅ Uploaded ${file.name}`)
+            }
+          } catch (dbError) {
+            console.error('❌ Database error:', dbError)
+            console.error('📊 Insert data:', insertData)
+            errorCount++
+          }
+
+        } catch (fileError) {
+          console.error(`Error uploading ${file.name}:`, fileError)
           errorCount++
         }
       }
 
-      // Refresh clothes list
-      await fetchClothes()
-
-      // Reset upload state
-      resetUpload()
-      
-      // Show appropriate success/error message
-      if (successCount > 0 && errorCount === 0) {
-        alert(`Successfully uploaded and analyzed ${successCount} ${selectedCategory} items!`)
-      } else if (successCount > 0 && errorCount > 0) {
-        alert(`Successfully uploaded ${successCount} items, but ${errorCount} items failed. Check console for details.`)
-      } else {
-        alert(`Failed to upload all items. Check console for details.`)
+      // Show results
+      if (successCount > 0) {
+        setSuccess(`Successfully uploaded ${successCount} ${selectedCategory}${successCount > 1 ? 's' : ''}!`)
+        await fetchUploadedItems()
+        resetUpload()
       }
+
+      if (errorCount > 0) {
+        setError(`Failed to upload ${errorCount} file${errorCount > 1 ? 's' : ''}`)
+      }
+
     } catch (error) {
-      console.error('Error uploading files:', error)
-      alert('Error uploading files. Please try again.')
+      console.error('Upload error:', error)
+      setError('Upload failed. Please try again.')
     } finally {
       setUploading(false)
-      setAiProcessing(false)
+    }
+  }
+
+  const deleteItem = async (itemId: string) => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('clothes')
+        .delete()
+        .eq('id', itemId)
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Delete error:', error)
+        return
+      }
+
+      await fetchUploadedItems()
+      console.log('✅ Item deleted')
+    } catch (error) {
+      console.error('Delete error:', error)
     }
   }
 
@@ -265,9 +288,7 @@ export default function UploadPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Please sign in to upload clothes</h1>
-          <Link href="/" className="text-purple-600 hover:text-purple-700">
-            Go back to home
-          </Link>
+          <Link href="/" className="text-purple-600 hover:text-purple-700">Go back to home</Link>
         </div>
       </div>
     )
@@ -280,13 +301,10 @@ export default function UploadPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <Link href="/" className="text-2xl font-bold text-gray-900">
-              AI Wardrobe Stylist
+              Personal Wardrobe Stylist
             </Link>
             <div className="flex space-x-4">
-              <Link
-                href="/outfits"
-                className="text-gray-700 hover:text-gray-900"
-              >
+              <Link href="/outfits" className="text-gray-700 hover:text-gray-900">
                 View Outfits
               </Link>
               <button
@@ -300,241 +318,166 @@ export default function UploadPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Upload Your Clothes</h1>
-          
-          {/* Category Selection */}
-          {!showCategorySelection && !selectedCategory && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Choose what you want to upload:</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {clothingCategories.map((category) => {
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => setShowCategorySelection(true)}
-                      className="p-6 border-2 border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all duration-200 text-left group"
-                    >
-                      {category.id === 'top' && <Shirt className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      {category.id === 'bottom' && <Shirt className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      {category.id === 'shoe' && <Footprints className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      {category.id === 'accessory' && <ShoppingBag className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      <h3 className="font-semibold text-gray-900 mb-2">{category.name}</h3>
-                      <p className="text-sm text-gray-600">{category.description}</p>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Upload Your Clothes</h1>
+          <p className="text-gray-600">
+            Upload photos of your clothing items to build your digital wardrobe. 
+            Our AI will analyze each item to help create perfect outfit combinations.
+          </p>
+        </div>
 
-          {/* Category Confirmation */}
-          {showCategorySelection && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Select Category:</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {clothingCategories.map((category) => {
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => handleCategorySelect(category.id)}
-                      className="p-6 border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 text-left group"
-                    >
-                      {category.id === 'top' && <Shirt className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      {category.id === 'bottom' && <Shirt className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      {category.id === 'shoe' && <Footprints className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      {category.id === 'accessory' && <ShoppingBag className="h-8 w-8 text-gray-400 group-hover:text-purple-600 mb-3" />}
-                      <h3 className="font-semibold text-gray-900 mb-2">{category.name}</h3>
-                      <p className="text-sm text-gray-600">{category.description}</p>
-                    </button>
-                  )
-                })}
-              </div>
+        {/* Category Selection */}
+        {showCategorySelection && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">What are you uploading?</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {categories.map((category) => {
+                const IconComponent = category.icon
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategorySelect(category.id)}
+                    className="p-6 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all text-left"
+                  >
+                    <IconComponent className="h-8 w-8 text-purple-600 mb-3" />
+                    <h3 className="font-semibold text-gray-900 mb-2">{category.name}</h3>
+                    <p className="text-sm text-gray-600">{category.description}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Upload Area */}
+        {selectedCategory && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Upload {categories.find(c => c.id === selectedCategory)?.name}
+              </h2>
               <button
-                onClick={() => setShowCategorySelection(false)}
-                className="mt-4 text-gray-500 hover:text-gray-700"
+                onClick={resetUpload}
+                className="text-gray-500 hover:text-gray-700"
               >
-                ← Back
+                <X className="h-5 w-5" />
               </button>
             </div>
-          )}
 
-          {/* Upload Area - Only show when category is selected */}
-          {selectedCategory && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Upload {clothingCategories.find(c => c.id === selectedCategory)?.name}
-                </h2>
+            <div className="bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 p-8 text-center">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className="cursor-pointer flex flex-col items-center"
+              >
+                <Upload className="h-12 w-12 text-gray-400 mb-4" />
+                <span className="text-lg font-medium text-gray-900 mb-2">
+                  Choose photos to upload
+                </span>
+                <span className="text-sm text-gray-500">
+                  PNG, JPG, WEBP up to 10MB each
+                </span>
+              </label>
+            </div>
+
+            {files.length > 0 && (
+              <div className="mt-4">
+                <h3 className="font-medium text-gray-900 mb-2">Selected files:</h3>
+                <div className="space-y-2">
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                      <span className="text-sm text-gray-700">{file.name}</span>
+                      <span className="text-xs text-gray-500">
+                        {(file.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {files.length > 0 && (
+              <div className="mt-6">
                 <button
-                  onClick={resetUpload}
-                  className="text-gray-500 hover:text-gray-700"
+                  onClick={uploadFiles}
+                  disabled={uploading}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Change Category
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Uploading and analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5 mr-2" />
+                      Upload {files.length} file{files.length > 1 ? 's' : ''}
+                    </>
+                  )}
                 </button>
               </div>
-              
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                <div className="mt-4">
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <span className="mt-2 block text-sm font-medium text-gray-900">
-                      Click to upload photos of your {clothingCategories.find(c => c.id === selectedCategory)?.name.toLowerCase()}
-                    </span>
-                    <span className="mt-1 block text-sm text-gray-500">
-                      PNG, JPG, JPEG up to 10MB each
-                    </span>
-                  </label>
-                  <input
-                    ref={fileInputRef}
-                    id="file-upload"
-                    name="file-upload"
-                    type="file"
-                    className="sr-only"
-                    multiple
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {/* Preview Grid */}
-          {previewUrls.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Preview ({previewUrls.length} files)</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {previewUrls.map((url, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={url}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <button
-                      onClick={() => removeFile(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        {/* Messages */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
 
-          {/* Upload Button */}
-          {uploadedFiles.length > 0 && selectedCategory && (
-            <div className="mt-8 flex flex-col items-center space-y-4">
-              <button
-                onClick={uploadFiles}
-                disabled={uploading}
-                className="flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    {aiProcessing ? 'Analyzing patterns & colors...' : 'Uploading...'}
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-5 w-5 mr-2" />
-                    Upload & Analyze {uploadedFiles.length} {clothingCategories.find(c => c.id === selectedCategory)?.name.toLowerCase()}
-                  </>
-                )}
-              </button>
-              
-              {aiProcessing && (
-                <div className="text-center">
-                  <div className="flex items-center space-x-2 text-purple-600">
-                    <Sparkles className="h-4 w-4 animate-pulse" />
-                    <span className="text-sm">AI is analyzing patterns, colors, and styles...</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    This will help create better outfit recommendations
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-800">{success}</p>
+          </div>
+        )}
 
-          {/* Uploaded Clothes Display */}
-          {uploadedClothes.length > 0 && (
-            <div className="mt-12">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Wardrobe ({uploadedClothes.length} items)</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {uploadedClothes.map((item, index) => (
-                  <div key={item.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm relative group">
-                    {/* Delete Button */}
-                    <button
-                      onClick={() => confirmDeleteItem(item.id, item.category)}
-                      disabled={deletingItems.has(item.id)}
-                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed z-10"
-                      title={`Delete ${item.category}`}
-                    >
-                      {deletingItems.has(item.id) ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </button>
-                    
+        {/* Uploaded Items */}
+        {uploadedItems.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Wardrobe</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {uploadedItems.map((item) => (
+                <div key={item.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="aspect-square bg-gray-100">
                     <img
                       src={item.image_url}
-                      alt={`Clothing item ${index + 1}`}
-                      className="w-full h-48 object-cover"
+                      alt={`${item.color} ${item.category}`}
+                      className="w-full h-full object-cover"
                     />
-                    <div className="p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Shirt className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm font-medium text-gray-900 capitalize">
-                          {item.category}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <div 
-                          className="w-4 h-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: item.color }}
-                        ></div>
-                        <span className="text-sm text-gray-600 capitalize">
-                          {item.color}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 capitalize mb-1">
-                        {item.material}
-                      </div>
-                      {item.pattern && (
-                        <div className="text-xs text-gray-500 capitalize mb-1">
-                          Pattern: {item.pattern}
-                        </div>
-                      )}
-                      {item.style && (
-                        <div className="text-xs text-gray-500 capitalize">
-                          Style: {item.style}
-                        </div>
-                      )}
+                  </div>
+                  <div className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900 capitalize">
+                        {item.category}
+                      </span>
+                      <button
+                        onClick={() => deleteItem(item.id)}
+                        className="text-gray-400 hover:text-red-500"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <div>Color: {item.color}</div>
+                      <div>Material: {item.material}</div>
+                      {item.style && <div>Style: {item.style}</div>}
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
-
-          {/* Instructions */}
-          <div className="mt-8 bg-blue-50 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-blue-900 mb-2">How It Works</h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• <strong>Step 1:</strong> Choose the category of clothes you want to upload</li>
-              <li>• <strong>Step 2:</strong> Select and upload photos of items in that category</li>
-              <li>• <strong>Step 3:</strong> AI analyzes patterns, colors, and styles for recommendations</li>
-              <li>• Take clear, well-lit photos for better analysis</li>
-              <li>• Upload one item per photo for best results</li>
-              <li>• Hover over items in your wardrobe to delete them</li>
-            </ul>
           </div>
-        </div>
+        )}
       </main>
     </div>
   )

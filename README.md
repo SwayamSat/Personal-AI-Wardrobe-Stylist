@@ -1,35 +1,38 @@
 # Personal AI Wardrobe Stylist
 
-A sophisticated web application that uses AI to analyze your wardrobe and suggest perfect outfit combinations. Upload photos of your clothes and let artificial intelligence create stylish outfits tailored to your existing wardrobe.
+A Next.js application that uses AI to analyze your clothing items and generate personalized outfit recommendations.
 
-## ✨ Features
+## Features
 
-- **AI-Powered Analysis**: Automatically categorizes clothes by type, color, and material
-- **Smart Outfit Generation**: Creates perfect combinations based on color harmony and style compatibility
-- **Google Authentication**: Secure sign-in with Google OAuth
-- **Cloud Storage**: Secure image storage with Supabase
-- **Responsive Design**: Beautiful UI that works on all devices
-- **Real-time Processing**: Instant AI analysis of uploaded clothing items
+- **Smart Clothing Analysis**: Upload photos of your clothes and get AI-powered analysis of color, material, and style
+- **Outfit Generation**: Receive personalized outfit recommendations based on your wardrobe
+- **User Authentication**: Secure signup/login with email/password or Google OAuth
+- **Digital Wardrobe**: Organize and manage your clothing items digitally
+- **Style Recommendations**: Get professional styling tips and color harmony suggestions
 
-## 🚀 Tech Stack
+## Tech Stack
 
-- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL, Storage, Auth)
-- **AI/ML**: Hugging Face Transformers, Microsoft ResNet-50
-- **Deployment**: Vercel (recommended)
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Supabase
+- **AI**: Google Gemini 2.5 Pro
+- **Database**: PostgreSQL (Supabase)
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase Storage
 
-## 📋 Prerequisites
+## Getting Started
+
+### Prerequisites
 
 - Node.js 18+ 
 - npm or yarn
 - Supabase account
-- Google Cloud Console account (for OAuth)
+- Google Cloud account (for Gemini API)
 
-## 🛠️ Installation
+### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
+   git clone <repository-url>
    cd personal-ai-wardrobe-stylist
    ```
 
@@ -41,92 +44,92 @@ A sophisticated web application that uses AI to analyze your wardrobe and sugges
 3. **Set up environment variables**
    ```bash
    cp env.template .env.local
-   # Edit .env.local with your Supabase credentials
+   ```
+   
+   Fill in your environment variables:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
    ```
 
-4. **Set up Supabase**
-   - Create a new Supabase project
-   - Run the SQL schema from `supabase-schema-no-storage.sql`
-   - Create a `clothes` storage bucket
-   - Set up Row Level Security policies
+4. **Set up the database**
+   - Open your Supabase project dashboard
+   - Go to SQL Editor
+   - Copy and paste the contents of `database-schema.sql`
+   - Run the script to create all tables, policies, and triggers
 
-5. **Start development server**
+5. **Run the development server**
    ```bash
    npm run dev
    ```
 
-## 🔧 Configuration
+6. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-### Supabase Setup
-
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Get your project URL and anon key from Settings → API
-3. Update `.env.local` with your credentials
-4. Run the database schema (see `supabase-schema-no-storage.sql`)
-5. Create storage bucket named `clothes`
-6. Set up RLS policies for security
-
-### Google OAuth (Optional)
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project or select existing
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URIs
-6. Update Supabase Auth settings
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
-├── app/                    # Next.js App Router
+├── app/                    # Next.js app directory
 │   ├── api/               # API routes
+│   │   ├── analyze-clothing/  # Clothing analysis endpoint
+│   │   └── generate-outfits/ # Outfit generation endpoint
 │   ├── auth/              # Authentication pages
-│   ├── upload/            # Upload page
 │   ├── outfits/           # Outfits page
+│   ├── upload/            # Upload page
 │   └── page.tsx           # Home page
-├── lib/                   # Utilities
-│   ├── supabaseClient.ts  # Supabase configuration
-│   └── embeddings.ts      # AI processing
-└── components/            # Reusable components
+├── components/            # React components
+│   └── AuthForms.tsx      # Login/Signup forms
+└── lib/                   # Utility libraries
+    ├── gemini.ts          # Gemini AI client
+    ├── geminiService.ts   # AI service functions
+    └── supabaseClient.ts  # Supabase client
 ```
 
-## 🚀 Deployment
+## API Endpoints
 
-### Vercel (Recommended)
+- `POST /api/analyze-clothing` - Analyze clothing items from images
+- `POST /api/generate-outfits` - Generate outfit recommendations
 
-1. Connect your GitHub repository to Vercel
-2. Add environment variables in Vercel dashboard
-3. Deploy automatically on push to main branch
+## Database Schema
 
-### Manual Deployment
+The application uses the following main tables:
 
-1. Build the project: `npm run build`
-2. Start production server: `npm start`
-3. Configure your hosting provider
+- **profiles** - User profiles and preferences
+- **clothes** - Clothing items with AI analysis data
+- **outfits** - Saved outfit combinations
+- **outfit_recommendations** - AI-generated recommendations
+- **user_preferences** - User styling preferences
 
-## 🔒 Security
+## Authentication
 
-- Row Level Security (RLS) enabled on all tables
-- User data isolation
-- Secure file uploads
-- OAuth authentication
+The app supports two authentication methods:
 
-## 🤝 Contributing
+1. **Email/Password**: Traditional signup/login
+2. **Google OAuth**: One-click Google authentication
+
+## AI Features
+
+- **Color Analysis**: Identifies dominant and secondary colors
+- **Material Detection**: Recognizes fabric types and textures
+- **Style Classification**: Categorizes clothing styles
+- **Outfit Generation**: Creates harmonious outfit combinations
+- **Style Recommendations**: Provides professional styling tips
+
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Support
+## Support
 
-For support, please open an issue on GitHub or contact the development team.
-
----
-
-**Built with ❤️ using Next.js, Supabase, and AI**
+If you encounter any issues or have questions, please open an issue on GitHub.
