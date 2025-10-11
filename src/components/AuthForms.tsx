@@ -89,12 +89,12 @@ export function LoginForm({ onSuccess, onSwitchMode }: AuthFormProps) {
   }
 
   if (forgotPassword) {
-    return (
-      <div className="!bg-white dark:!bg-black border border-gray-200 dark:border-gray-800 rounded-lg p-4 w-full max-w-xs mx-auto shadow-2xl">
-        <div className="text-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Reset Password</h2>
-          <p className="text-gray-600 dark:text-gray-300 text-sm">Enter your email to receive a reset link</p>
-        </div>
+  return (
+    <div className="!bg-white dark:!bg-black border border-gray-200 dark:border-gray-800 rounded-lg p-3 xs:p-4 w-full max-w-xs mx-auto shadow-2xl">
+      <div className="text-center mb-3 xs:mb-4">
+        <h2 className="text-xl xs:text-2xl font-bold text-gray-900 dark:text-white mb-1 xs:mb-2">Reset Password</h2>
+        <p className="text-gray-600 dark:text-gray-300 text-xs xs:text-sm">Enter your email to receive a reset link</p>
+      </div>
 
         <form onSubmit={(e) => { e.preventDefault(); handleForgotPassword(); }} className="space-y-3">
           <div>
@@ -149,10 +149,10 @@ export function LoginForm({ onSuccess, onSwitchMode }: AuthFormProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-lg p-4 w-full max-w-xs mx-auto shadow-2xl">
-      <div className="text-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h2>
-        <p className="text-gray-600 dark:text-gray-300 text-sm">Sign in to your account</p>
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-lg p-3 xs:p-4 w-full max-w-xs mx-auto shadow-2xl">
+      <div className="text-center mb-3 xs:mb-4">
+        <h2 className="text-xl xs:text-2xl font-bold text-gray-900 dark:text-white mb-1 xs:mb-2">Welcome Back</h2>
+        <p className="text-gray-600 dark:text-gray-300 text-xs xs:text-sm">Sign in to your account</p>
       </div>
 
       <form onSubmit={handleLogin} className="space-y-3">
@@ -377,10 +377,10 @@ export function SignupForm({ onSuccess, onSwitchMode }: AuthFormProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-lg p-4 w-full max-w-xs mx-auto shadow-2xl">
-      <div className="text-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Create Account</h2>
-        <p className="text-gray-600 dark:text-gray-300 text-sm">Sign up to get started</p>
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-lg p-3 xs:p-4 w-full max-w-xs mx-auto shadow-2xl">
+      <div className="text-center mb-3 xs:mb-4">
+        <h2 className="text-xl xs:text-2xl font-bold text-gray-900 dark:text-white mb-1 xs:mb-2">Create Account</h2>
+        <p className="text-gray-600 dark:text-gray-300 text-xs xs:text-sm">Sign up to get started</p>
       </div>
 
       <form onSubmit={handleSignup} className="space-y-3">

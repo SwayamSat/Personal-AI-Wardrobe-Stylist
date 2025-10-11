@@ -1,4 +1,5 @@
 // Professional Gemini Service for Personal Wardrobe Stylist
+// SECURITY NOTE: Never log API keys or sensitive environment variables
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { analyzeImageColorsAdvanced, analyzeMaterialFromImage } from './colorAnalysis';
 
@@ -17,7 +18,7 @@ function getGeminiClient(): GoogleGenerativeAI | null {
       return null;
     }
     
-    console.log('✅ GEMINI_API_KEY found, length:', process.env.GEMINI_API_KEY.length);
+    console.log('✅ GEMINI_API_KEY found and configured');
     
     const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     console.log('✅ Gemini client initialized successfully');
@@ -155,7 +156,18 @@ Return ONLY the JSON object, no explanations or additional text.`;
     console.log('📡 Calling Gemini API with enhanced prompt...');
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
+    
+    if (!response) {
+      console.log('⚠️ No response from Gemini API - using fallback');
+      throw new Error('No response received from Gemini API');
+    }
+    
     const text = response.text();
+    
+    if (!text) {
+      console.log('⚠️ Empty text response from Gemini API - using fallback');
+      throw new Error('Empty text response from Gemini API');
+    }
     
     console.log('📝 Raw Gemini response:', text);
     
@@ -199,6 +211,19 @@ Return ONLY the JSON object, no explanations or additional text.`;
   } catch (error) {
     console.error('❌ Gemini analysis failed, using advanced computer vision fallback:', error);
     console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
+    
+    // Log specific error types for better debugging
+    if (error instanceof Error) {
+      if (error.message.includes('Empty text response') || error.message.includes('Empty response')) {
+        console.log('🔍 Empty response from Gemini API - using computer vision fallback');
+      } else if (error.message.includes('API key')) {
+        console.log('🔑 API key issue - using computer vision fallback');
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        console.log('🌐 Network issue - using computer vision fallback');
+      } else {
+        console.log('⚠️ Unknown Gemini error - using computer vision fallback');
+      }
+    }
     
     // Fallback to advanced computer vision
     try {
@@ -417,6 +442,7 @@ Use only item IDs from the wardrobe list above.`;
     
     // Check if text is valid
     if (!text) {
+      console.log('⚠️ Empty text response from Gemini API - using fallback');
       throw new Error('Empty text response from Gemini API');
     }
     
