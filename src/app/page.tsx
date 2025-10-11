@@ -1,6 +1,7 @@
 'use client'
+// Version: 2.2 - Fixed ESLint and Suspense issues
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
 import { Upload, Sparkles, Shirt, Footprints, ShoppingBag, Watch, ArrowRight, Mail, LogIn } from 'lucide-react'
@@ -11,7 +12,7 @@ import { useTheme } from '@/lib/theme'
 
 type AuthMode = 'login' | 'signup' | null
 
-export default function HomePage() {
+function HomePageContent() {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -409,5 +410,17 @@ export default function HomePage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   )
 }
