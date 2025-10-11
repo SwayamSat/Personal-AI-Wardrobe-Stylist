@@ -8,6 +8,7 @@ import { Upload, Sparkles, Shirt, Footprints, ShoppingBag, Watch, ArrowRight, Ma
 import Link from 'next/link'
 import { LoginForm, SignupForm } from '@/components/AuthForms'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import Header from '@/components/Header'
 import { useTheme } from '@/lib/theme'
 
 type AuthMode = 'login' | 'signup' | null
@@ -22,10 +23,12 @@ function HomePageContent() {
 
   // Handle URL parameters for auth modal
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const authParam = urlParams.get('auth')
-    if (authParam === 'login' || authParam === 'signup') {
-      setAuthMode(authParam as AuthMode)
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const authParam = urlParams.get('auth')
+      if (authParam === 'login' || authParam === 'signup') {
+        setAuthMode(authParam as AuthMode)
+      }
     }
   }, [])
 
@@ -145,13 +148,19 @@ function HomePageContent() {
     }
   }
 
+  const handleAuthClick = (mode: 'login' | 'signup') => {
+    setAuthMode(mode)
+  }
+
   const handleAuthSuccess = () => {
     setAuthMode(null)
     // Clear URL parameters
-    try {
-      window.history.replaceState({}, '', '/')
-    } catch (err) {
-      console.error('Error clearing URL parameters:', err)
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState({}, '', '/')
+      } catch (err) {
+        console.error('Error clearing URL parameters:', err)
+      }
     }
   }
 
@@ -165,6 +174,8 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300 relative overflow-hidden">
+      <Header onAuthClick={handleAuthClick} />
+      
       {/* 3D Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/20 to-purple-600/20 rounded-full blur-3xl animate-float"></div>
@@ -180,10 +191,12 @@ function HomePageContent() {
             <button
               onClick={() => {
                 setAuthMode(null)
-                try {
-                  window.history.replaceState({}, '', '/')
-                } catch (err) {
-                  console.error('Error clearing URL parameters:', err)
+                if (typeof window !== 'undefined') {
+                  try {
+                    window.history.replaceState({}, '', '/')
+                  } catch (err) {
+                    console.error('Error clearing URL parameters:', err)
+                  }
                 }
               }}
               className="absolute -top-2 -right-2 w-8 h-8 !bg-white dark:!bg-black border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300 transform hover:scale-110 z-10"

@@ -12,7 +12,11 @@ interface UserProfile {
   email?: string
 }
 
-export default function Header() {
+interface HeaderProps {
+  onAuthClick?: (mode: 'login' | 'signup') => void
+}
+
+export default function Header({ onAuthClick }: HeaderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -174,18 +178,18 @@ export default function Header() {
               </div>
             ) : (
               <div className="flex items-center space-x-0.5 xs:space-x-1 sm:space-x-3">
-                <Link
-                  href="/?auth=login"
+                <button
+                  onClick={() => onAuthClick?.('login')}
                   className="px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all duration-300 active:scale-95"
                 >
                   <span className="text-xs xs:text-sm">Sign In</span>
-                </Link>
-                <Link
-                  href="/?auth=signup"
+                </button>
+                <button
+                  onClick={() => onAuthClick?.('signup')}
                   className="px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors active:scale-95"
                 >
                   <span className="text-xs xs:text-sm">Sign Up</span>
-                </Link>
+                </button>
               </div>
             )}
           </div>
