@@ -1,0 +1,18 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <circle cx="8" cy="8" r="8" fill="url(#gradient)"/>
+  
+  <!-- Simplified wardrobe icon -->
+  <path d="M8 4C9.5 4 10.5 5 10.5 6.5V7L11.5 8C11.8 8.2 11.8 8.5 11.5 8.8L10.5 9.8V11C10.5 11.8 9.8 12.5 9 12.5H7C6.2 12.5 5.5 11.8 5.5 11V9.8L4.5 8.8C4.2 8.5 4.2 8.2 4.5 8L5.5 7V6.5C5.5 5 6.5 4 8 4Z" fill="white"/>
+  
+  <!-- Small sparkle -->
+  <circle cx="12" cy="4" r="1" fill="white" opacity="0.8"/>
+  
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#EC4899;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>
