@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    serverComponentsExternalPackages: ['@xenova/transformers'],
+  },
   webpack: (config, { isServer }) => {
     // Handle transformers.js in the browser
     if (!isServer) {
