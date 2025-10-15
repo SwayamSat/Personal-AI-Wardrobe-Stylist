@@ -27,6 +27,7 @@ export default function AuthCallback() {
         console.log('Hash Params:', window.location.hash);
         console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
         console.log('Site URL:', process.env.NEXT_PUBLIC_SITE_URL);
+        console.log('Current Origin:', window.location.origin);
 
         // Check if we have an error in the URL
         const error = searchParams.get('error') || hashParams.get('error')
