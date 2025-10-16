@@ -284,6 +284,7 @@ function parseGeminiResponse(text: string, expectedType: 'object' | 'array'): an
     { name: 'Markdown cleanup', fn: () => parseWithStrategy(text, expectedType, 'markdown') },
     { name: 'Regex extraction', fn: () => parseWithStrategy(text, expectedType, 'regex') },
     { name: 'Repair and parse', fn: () => parseWithStrategy(text, expectedType, 'repair') },
+    { name: 'String repair', fn: () => parseWithStrategy(text, expectedType, 'string-repair') },
     { name: 'Aggressive repair', fn: () => parseWithStrategy(text, expectedType, 'aggressive') },
     { name: 'Fallback generation', fn: () => generateFallbackResponse(expectedType) }
   ];
@@ -298,7 +299,7 @@ function parseGeminiResponse(text: string, expectedType: 'object' | 'array'): an
         console.log(`✅ Strategy "${strategy.name}" succeeded`);
         return result;
       }
-    } catch (error) {
+  } catch (error) {
       console.log(`⚠️ Strategy "${strategy.name}" failed:`, error instanceof Error ? error.message : 'Unknown error');
     }
   }
@@ -361,29 +362,89 @@ function parseWithStrategy(text: string, expectedType: 'object' | 'array', strat
         cleanText = jsonMatch2[0];
       }
       
+      // Enhanced repair with specific unterminated string handling
       const repairedJson = repairIncompleteJSON(cleanText);
-      return JSON.parse(repairedJson);
+      
+      // Try parsing the repaired JSON
+      try {
+        return JSON.parse(repairedJson);
+      } catch (repairError) {
+        console.log('⚠️ Repair failed, trying aggressive repair...');
+        const aggressiveRepaired = aggressiveRepairJSON(cleanText, expectedType);
+        return JSON.parse(aggressiveRepaired);
+      }
+      
+    case 'string-repair':
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      cleanText = cleanText.replace(/```\s*/g, '');
+      
+      // Extract JSON
+      let jsonMatch3: RegExpMatchArray | null = null;
+      if (expectedType === 'object') {
+        jsonMatch3 = cleanText.match(/\{[\s\S]*?\}/) || 
+                    cleanText.match(/\{[\s\S]*\}/) ||
+                    cleanText.match(/\{[^}]*\}/);
+      } else if (expectedType === 'array') {
+        jsonMatch3 = cleanText.match(/\[[\s\S]*?\]/) || 
+                    cleanText.match(/\[[\s\S]*\]/) ||
+                    cleanText.match(/\[[^\]]*\]/);
+      }
+      
+      if (jsonMatch3) {
+        cleanText = jsonMatch3[0];
+      }
+      
+      // Focus on string repair specifically
+      console.log('🔧 Applying string-specific repairs...');
+      
+      // Fix unterminated strings at the end of the JSON
+      cleanText = cleanText.replace(/"([^"]*?)(\s*$)/g, '"$1"');
+      
+      // Fix unterminated strings before commas, braces, or brackets
+      cleanText = cleanText.replace(/"([^"]*?)(\s*[,}\]])/g, (match, content, ending) => {
+        // If the content doesn't end with a quote, add one
+        if (!content.endsWith('"')) {
+          return `"${content}"${ending}`;
+        }
+        return match;
+      });
+      
+      // Fix strings that span multiple lines
+      cleanText = cleanText.replace(/"([^"]*?)\n([^"]*?)"/g, '"$1 $2"');
+      
+      // Fix strings with unescaped quotes
+      cleanText = cleanText.replace(/"([^"]*)"([^"]*)"([^"]*)":/g, '"$1\\"$2\\"$3":');
+      
+      // Try parsing
+      try {
+        return JSON.parse(cleanText);
+      } catch (stringError) {
+        console.log('⚠️ String repair failed:', stringError instanceof Error ? stringError.message : 'Unknown error');
+        console.log('🔧 Trying aggressive repair...');
+        const aggressiveRepaired = aggressiveRepairJSON(cleanText, expectedType);
+        return JSON.parse(aggressiveRepaired);
+      }
       
     case 'aggressive':
       cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
       cleanText = cleanText.replace(/```\s*/g, '');
       
       // More aggressive extraction
-      let jsonMatch3: RegExpMatchArray | null = null;
+      let jsonMatch4: RegExpMatchArray | null = null;
       if (expectedType === 'object') {
-        jsonMatch3 = cleanText.match(/\{[\s\S]*?\}/) || 
+        jsonMatch4 = cleanText.match(/\{[\s\S]*?\}/) || 
                     cleanText.match(/\{[\s\S]*\}/) ||
                     cleanText.match(/\{[^}]*\}/) ||
                     cleanText.match(/\{[^}]*$/);
       } else if (expectedType === 'array') {
-        jsonMatch3 = cleanText.match(/\[[\s\S]*?\]/) || 
+        jsonMatch4 = cleanText.match(/\[[\s\S]*?\]/) || 
                     cleanText.match(/\[[\s\S]*\]/) ||
                     cleanText.match(/\[[^\]]*\]/) ||
                     cleanText.match(/\[[^\]]*$/);
       }
       
-      if (jsonMatch3) {
-        cleanText = jsonMatch3[0];
+      if (jsonMatch4) {
+        cleanText = jsonMatch4[0];
       }
       
       const aggressiveRepaired = aggressiveRepairJSON(cleanText, expectedType);
@@ -422,7 +483,7 @@ function generateFallbackResponse(expectedType: 'object' | 'array'): any {
   return null;
 }
 
-// More aggressive JSON repair for difficult cases
+// More aggressive JSON repair for difficult cases with enhanced string handling
 function aggressiveRepairJSON(jsonText: string, expectedType: 'object' | 'array'): string {
   console.log('🔧 Attempting aggressive JSON repair...');
   
@@ -440,6 +501,22 @@ function aggressiveRepairJSON(jsonText: string, expectedType: 'object' | 'array'
   if (!repaired || repaired.length === 0) {
     return expectedType === 'object' ? '{}' : '[]';
   }
+  
+  // Enhanced string repair patterns
+  // Fix unterminated strings with multiline support
+  repaired = repaired.replace(/"([^"]*?)\n([^"]*?)"/g, '"$1 $2"');
+  
+  // Fix strings that span multiple lines without proper termination
+  repaired = repaired.replace(/"([^"]*?)\n([^"]*?)(\s*[,}\]])/g, (match, start, middle, ending) => {
+    const cleanedMiddle = middle.replace(/\n/g, ' ').replace(/"/g, '\\"');
+    return `"${start} ${cleanedMiddle}"${ending}`;
+  });
+  
+  // Fix unterminated strings at the end of the JSON
+  repaired = repaired.replace(/"([^"]*?)(\s*)$/g, '"$1"');
+  
+  // Fix strings with unescaped quotes
+  repaired = repaired.replace(/"([^"]*)"([^"]*)"([^"]*)":/g, '"$1\\"$2\\"$3":');
   
   // Count braces and brackets
   const openBraces = (repaired.match(/\{/g) || []).length;
@@ -463,13 +540,15 @@ function aggressiveRepairJSON(jsonText: string, expectedType: 'object' | 'array'
   // Fix missing quotes around keys
   repaired = repaired.replace(/(\w+):/g, '"$1":');
   
-  // More careful string value fixing
+  // More careful string value fixing with better escaping
   repaired = repaired.replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, (match, value, ending) => {
     // Don't quote numbers, booleans, null, or already quoted values
     if (/^["\d\-]/.test(value) || value === 'true' || value === 'false' || value === 'null') {
       return match;
     }
-    return `: "${value}"${ending}`;
+    // Escape quotes and newlines in the value
+    const escapedValue = value.replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, '');
+    return `: "${escapedValue}"${ending}`;
   });
   
   // Ensure proper structure
@@ -479,12 +558,26 @@ function aggressiveRepairJSON(jsonText: string, expectedType: 'object' | 'array'
     repaired = '[' + repaired + ']';
   }
   
+  // Final validation attempt
+  try {
+    JSON.parse(repaired);
+    console.log('✅ Aggressive repair successful');
+  } catch (finalError) {
+    console.log('⚠️ Aggressive repair failed, returning safe fallback');
+    // Return a safe fallback structure
+    if (expectedType === 'object') {
+      repaired = '{"error": "JSON repair failed", "fallback": true}';
+    } else {
+      repaired = '[{"error": "JSON repair failed", "fallback": true}]';
+    }
+  }
+  
   console.log('🔧 Aggressively repaired JSON:', repaired.substring(0, 200) + (repaired.length > 200 ? '...' : ''));
   
   return repaired;
 }
 
-// Enhanced JSON repair function with more comprehensive patterns
+// Enhanced JSON repair function with comprehensive string handling
 function repairIncompleteJSON(jsonText: string): string {
   console.log('🔧 Attempting comprehensive JSON repair...');
   
@@ -510,9 +603,22 @@ function repairIncompleteJSON(jsonText: string): string {
   // Remove any text after the last } or ]
   repaired = repaired.replace(/[^}\]]*$/, '');
   
-  // Repair pattern 2: Fix unterminated strings
-  repaired = repaired.replace(/"\s*$/, '"');
-  repaired = repaired.replace(/^[^"]*"/, '"');
+  // Repair pattern 2: Fix unterminated strings and escape issues
+  // Fix unescaped quotes within strings
+  repaired = repaired.replace(/"([^"]*)"([^"]*)"([^"]*)":/g, '"$1\\"$2\\"$3":');
+  
+  // Fix unterminated strings at the end of lines
+  repaired = repaired.replace(/"\s*$/gm, '"');
+  
+  // Fix unterminated strings in the middle
+  repaired = repaired.replace(/"([^"]*?)\n/g, '"$1"');
+  
+  // Fix strings that start but don't end properly
+  repaired = repaired.replace(/"([^"]*?)([^",}\]]*?)(\s*[,}\]])/g, (match, start, middle, ending) => {
+    // If middle contains unescaped quotes, escape them
+    const escapedMiddle = middle.replace(/"/g, '\\"');
+    return `"${start}${escapedMiddle}"${ending}`;
+  });
   
   // Repair pattern 3: Fix incomplete objects and arrays
   const openBraces = (repaired.match(/\{/g) || []).length;
@@ -540,7 +646,9 @@ function repairIncompleteJSON(jsonText: string): string {
   repaired = repaired.replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, (match, value, ending) => {
     // Only add quotes if the value doesn't already have quotes and isn't a number/boolean/null
     if (!/^["\d\-]/.test(value) && value !== 'true' && value !== 'false' && value !== 'null') {
-      return `: "${value}"${ending}`;
+      // Escape any quotes in the value
+      const escapedValue = value.replace(/"/g, '\\"');
+      return `: "${escapedValue}"${ending}`;
     }
     return match;
   });
@@ -558,6 +666,17 @@ function repairIncompleteJSON(jsonText: string): string {
   // Repair pattern 9: Ensure proper JSON structure
   if (!repaired.startsWith('{') && !repaired.startsWith('[')) {
     repaired = '{' + repaired + '}';
+  }
+  
+  // Repair pattern 10: Final validation and cleanup
+  try {
+    // Try to parse the repaired JSON
+    JSON.parse(repaired);
+    console.log('✅ JSON repair successful');
+  } catch (repairError) {
+    console.log('⚠️ JSON still invalid after repair, trying aggressive repair...');
+    // If still invalid, try aggressive repair
+    repaired = aggressiveRepairJSON(repaired, 'object');
   }
   
   console.log('🔧 Repaired JSON:', repaired.substring(0, 200) + (repaired.length > 200 ? '...' : ''));
@@ -614,6 +733,9 @@ CRITICAL JSON FORMAT REQUIREMENTS:
 - Each outfit object must have ALL required fields
 - Use ONLY the item IDs provided in the wardrobe list above
 - Ensure proper JSON syntax: quotes around strings, no trailing commas
+- NO unterminated strings - every string must start and end with quotes
+- NO unescaped quotes within string values - use \" for quotes inside strings
+- NO multiline strings - keep all strings on single lines
 - No explanations, comments, or additional text outside the JSON
 - Must be parseable by JSON.parse()
 
@@ -790,18 +912,18 @@ Return ONLY the JSON array above, no other text or explanations.`;
     
     if (!recommendations || !Array.isArray(recommendations)) {
       throw new Error('Failed to extract valid JSON array from Gemini response');
-    }
-    
-    // Check if array is empty
-    if (recommendations.length === 0) {
-      console.log('⚠️ Empty recommendations array, using fallback');
-      throw new Error('Empty recommendations array');
-    }
-    
-    // Validate and complete each recommendation
-    recommendations = recommendations.map((outfit: any, index: number) => {
-      return validateAndCompleteOutfit(outfit, index, occasion);
-    });
+      }
+      
+      // Check if array is empty
+      if (recommendations.length === 0) {
+        console.log('⚠️ Empty recommendations array, using fallback');
+        throw new Error('Empty recommendations array');
+      }
+      
+      // Validate and complete each recommendation
+      recommendations = recommendations.map((outfit: any, index: number) => {
+        return validateAndCompleteOutfit(outfit, index, occasion);
+      });
     
     console.log(`✅ Generated ${recommendations.length} advanced outfit recommendations`);
     return recommendations;
