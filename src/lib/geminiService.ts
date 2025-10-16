@@ -285,6 +285,7 @@ function parseGeminiResponse(text: string, expectedType: 'object' | 'array'): an
     { name: 'Regex extraction', fn: () => parseWithStrategy(text, expectedType, 'regex') },
     { name: 'Repair and parse', fn: () => parseWithStrategy(text, expectedType, 'repair') },
     { name: 'String repair', fn: () => parseWithStrategy(text, expectedType, 'string-repair') },
+    { name: 'Truncation repair', fn: () => parseWithStrategy(text, expectedType, 'truncation-repair') },
     { name: 'Aggressive repair', fn: () => parseWithStrategy(text, expectedType, 'aggressive') },
     { name: 'Fallback generation', fn: () => generateFallbackResponse(expectedType) }
   ];
@@ -425,6 +426,72 @@ function parseWithStrategy(text: string, expectedType: 'object' | 'array', strat
         return JSON.parse(aggressiveRepaired);
       }
       
+    case 'truncation-repair':
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      cleanText = cleanText.replace(/```\s*/g, '');
+      
+      // Extract JSON
+      let jsonMatch5: RegExpMatchArray | null = null;
+      if (expectedType === 'object') {
+        jsonMatch5 = cleanText.match(/\{[\s\S]*?\}/) || 
+                    cleanText.match(/\{[\s\S]*\}/) ||
+                    cleanText.match(/\{[^}]*\}/);
+      } else if (expectedType === 'array') {
+        jsonMatch5 = cleanText.match(/\[[\s\S]*?\]/) || 
+                    cleanText.match(/\[[\s\S]*\]/) ||
+                    cleanText.match(/\[[^\]]*\]/);
+      }
+      
+      if (jsonMatch5) {
+        cleanText = jsonMatch5[0];
+      }
+      
+      // Focus on truncation repair specifically
+      console.log('🔧 Applying truncation-specific repairs...');
+      
+      // Check if JSON is truncated
+      if (cleanText.trim().endsWith(',') || cleanText.trim().endsWith(':')) {
+        console.log('🔧 Detected truncated JSON, completing structure...');
+        
+        // Remove trailing comma or colon
+        cleanText = cleanText.replace(/[,:]\s*$/, '');
+        
+        // Complete truncated arrays
+        if (cleanText.startsWith('[') && !cleanText.endsWith(']')) {
+          // Find the last incomplete object
+          const lastIncompleteMatch = cleanText.match(/\{[^}]*$/);
+          if (lastIncompleteMatch) {
+            const lastIncomplete = lastIncompleteMatch[0];
+            console.log('🔧 Found incomplete object:', lastIncomplete.substring(0, 100) + '...');
+            
+            // Complete the incomplete object
+            if (lastIncomplete.includes('"occasion"') && !lastIncomplete.includes('"confidence"')) {
+              const completedObject = lastIncomplete.replace(/,\s*$/, '') + ', "confidence": 0.8}';
+              cleanText = cleanText.replace(/\{[^}]*$/, completedObject);
+            } else if (!lastIncomplete.includes('"confidence"')) {
+              const completedObject = lastIncomplete.replace(/,\s*$/, '') + ', "confidence": 0.8}';
+              cleanText = cleanText.replace(/\{[^}]*$/, completedObject);
+            }
+          }
+          cleanText = cleanText + ']';
+        }
+        
+        // Complete truncated objects
+        if (cleanText.startsWith('{') && !cleanText.endsWith('}')) {
+          cleanText = cleanText + '}';
+        }
+      }
+      
+      // Try parsing
+      try {
+        return JSON.parse(cleanText);
+      } catch (truncationError) {
+        console.log('⚠️ Truncation repair failed:', truncationError instanceof Error ? truncationError.message : 'Unknown error');
+        console.log('🔧 Trying aggressive repair...');
+        const aggressiveRepaired = aggressiveRepairJSON(cleanText, expectedType);
+        return JSON.parse(aggressiveRepaired);
+      }
+      
     case 'aggressive':
       cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
       cleanText = cleanText.replace(/```\s*/g, '');
@@ -517,6 +584,33 @@ function aggressiveRepairJSON(jsonText: string, expectedType: 'object' | 'array'
   
   // Fix strings with unescaped quotes
   repaired = repaired.replace(/"([^"]*)"([^"]*)"([^"]*)":/g, '"$1\\"$2\\"$3":');
+  
+  // Enhanced truncation handling
+  if (repaired.trim().endsWith(',') || repaired.trim().endsWith(':')) {
+    console.log('🔧 Aggressive repair: Detected truncated JSON, completing...');
+    
+    // Remove trailing comma or colon
+    repaired = repaired.replace(/[,:]\s*$/, '');
+    
+    // Complete truncated arrays
+    if (repaired.startsWith('[') && !repaired.endsWith(']')) {
+      // Find incomplete objects and complete them
+      const incompleteObjects = repaired.match(/\{[^}]*$/g);
+      if (incompleteObjects && incompleteObjects.length > 0) {
+        // Complete the last incomplete object
+        const lastIncomplete = incompleteObjects[incompleteObjects.length - 1];
+        if (lastIncomplete.includes('"occasion"') && !lastIncomplete.includes('"confidence"')) {
+          repaired = repaired.replace(/\{[^}]*$/, lastIncomplete.replace(/,\s*$/, '') + ', "confidence": 0.8}');
+        }
+      }
+      repaired = repaired + ']';
+    }
+    
+    // Complete truncated objects
+    if (repaired.startsWith('{') && !repaired.endsWith('}')) {
+      repaired = repaired + '}';
+    }
+  }
   
   // Count braces and brackets
   const openBraces = (repaired.match(/\{/g) || []).length;
@@ -619,6 +713,40 @@ function repairIncompleteJSON(jsonText: string): string {
     const escapedMiddle = middle.replace(/"/g, '\\"');
     return `"${start}${escapedMiddle}"${ending}`;
   });
+  
+  // Repair pattern 2.5: Fix truncated JSON responses
+  // If JSON ends abruptly without proper closing, complete it
+  if (repaired.trim().endsWith(',') || repaired.trim().endsWith(':')) {
+    console.log('🔧 Detected truncated JSON, attempting to complete...');
+    
+    // Remove trailing comma or colon
+    repaired = repaired.replace(/[,:]\s*$/, '');
+    
+    // If it's an array that's not closed
+    if (repaired.startsWith('[') && !repaired.endsWith(']')) {
+      // Find the last complete object
+      const lastCompleteObject = repaired.match(/\{[^}]*\}/g);
+      if (lastCompleteObject && lastCompleteObject.length > 0) {
+        const lastObject = lastCompleteObject[lastCompleteObject.length - 1];
+        // Check if the last object is complete
+        if (lastObject.includes('"confidence"') || lastObject.includes('"score"')) {
+          // Complete the array
+          repaired = repaired.replace(/,\s*$/, '') + ']';
+        } else {
+          // Complete the last object and array
+          repaired = repaired.replace(/,\s*$/, '') + ', "confidence": 0.8}]';
+        }
+      } else {
+        // No complete objects found, create a basic structure
+        repaired = repaired.replace(/,\s*$/, '') + ']';
+      }
+    }
+    
+    // If it's an object that's not closed
+    if (repaired.startsWith('{') && !repaired.endsWith('}')) {
+      repaired = repaired.replace(/,\s*$/, '') + '}';
+    }
+  }
   
   // Repair pattern 3: Fix incomplete objects and arrays
   const openBraces = (repaired.match(/\{/g) || []).length;
@@ -744,7 +872,7 @@ REQUIRED JSON ARRAY FORMAT:
   {
     "outfitId": "outfit_1",
     "top": "item_id",
-    "bottom": "item_id", 
+    "bottom": "item_id",
     "shoe": "item_id",
     "accessory": "item_id",
     "score": 85,
@@ -764,7 +892,7 @@ Return ONLY the JSON array above, no other text or explanations.`;
         temperature: 0.3,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 4000,
+        maxOutputTokens: 5000,
         candidateCount: 1,
         stopSequences: [],
       },
