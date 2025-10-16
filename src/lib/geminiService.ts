@@ -1,6 +1,6 @@
 // Professional Gemini Service for Personal Wardrobe Stylist
 // SECURITY NOTE: Never log API keys or sensitive environment variables
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import { analyzeImageColorsAdvanced, analyzeMaterialFromImage } from './colorAnalysis';
 
 // Initialize Gemini at runtime to avoid webpack issues
@@ -148,20 +148,20 @@ Return ONLY the JSON object, no explanations or additional text.`;
       },
       safetySettings: [
         {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         }
       ]
     });
@@ -229,14 +229,13 @@ Return ONLY the JSON object, no explanations or additional text.`;
         console.log('🔍 Empty response from Gemini API - using computer vision fallback');
       } else if (error.message.includes('Failed to extract valid JSON')) {
         console.log('🔍 JSON extraction failed - using computer vision fallback');
-        console.log('📝 Raw response that failed:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
       } else if (error.message.includes('API key')) {
         console.log('🔑 API key issue - using computer vision fallback');
       } else if (error.message.includes('network') || error.message.includes('fetch')) {
         console.log('🌐 Network issue - using computer vision fallback');
       } else {
         console.log('⚠️ Unknown Gemini error - using computer vision fallback');
-        console.log('📝 Error stack:', error.stack?.substring(0, 300) + (error.stack?.length > 300 ? '...' : ''));
+        console.log('📝 Error stack:', error.stack?.substring(0, 300) + (error.stack && error.stack.length > 300 ? '...' : ''));
       }
     }
     
@@ -649,20 +648,20 @@ Return ONLY the JSON array above, no other text or explanations.`;
       },
       safetySettings: [
         {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         }
       ]
     });
@@ -815,7 +814,6 @@ Return ONLY the JSON array above, no other text or explanations.`;
     if (error instanceof Error) {
       if (error.message.includes('Failed to extract valid JSON array')) {
         console.log('🔍 JSON array extraction failed - using fallback');
-        console.log('📝 Raw response that failed:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
       } else if (error.message.includes('Empty response')) {
         console.log('🔍 Empty response from Gemini - using fallback');
       } else if (error.message.includes('Empty recommendations array')) {
@@ -824,7 +822,7 @@ Return ONLY the JSON array above, no other text or explanations.`;
         console.log('🔍 Gemini API failure - using fallback');
       } else {
         console.log('⚠️ Unknown outfit generation error - using fallback');
-        console.log('📝 Error stack:', error.stack?.substring(0, 300) + (error.stack?.length > 300 ? '...' : ''));
+        console.log('📝 Error stack:', error.stack?.substring(0, 300) + (error.stack && error.stack.length > 300 ? '...' : ''));
       }
     }
     
@@ -872,20 +870,20 @@ export async function testGeminiAPI(): Promise<{success: boolean, message: strin
       },
       safetySettings: [
         {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         }
       ]
     });
