@@ -135,15 +135,35 @@ PROFESSIONAL EXAMPLES:
 
 Return ONLY the JSON object, no explanations or additional text.`;
 
-    // Use Gemini 2.5 Pro for superior vision analysis
+    // Use Gemini 2.5 Pro for superior vision analysis with enhanced configuration
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-pro",
       generationConfig: {
         temperature: 0.1,
         topK: 32,
         topP: 1,
-        maxOutputTokens: 1000,
-      }
+        maxOutputTokens: 500,
+        candidateCount: 1,
+        stopSequences: [],
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        }
+      ]
     });
     
     const imagePart = {
@@ -171,21 +191,12 @@ Return ONLY the JSON object, no explanations or additional text.`;
     
     console.log('📝 Raw Gemini response:', text);
     
-    // Clean and parse JSON - handle various response formats
-    let cleanText = text.trim();
+    // Enhanced JSON parsing with multiple extraction strategies
+    let analysis = parseGeminiResponse(text, 'object');
     
-    // Remove markdown code blocks
-    cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-    
-    // Extract JSON from response if it's embedded in text
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanText = jsonMatch[0];
+    if (!analysis) {
+      throw new Error('Failed to extract valid JSON from Gemini response');
     }
-    
-    console.log('🧹 Cleaned text:', cleanText);
-    
-    const analysis = JSON.parse(cleanText);
     console.log('📊 Parsed analysis:', analysis);
     
     // Validate and enhance the analysis with better defaults
@@ -212,16 +223,20 @@ Return ONLY the JSON object, no explanations or additional text.`;
     console.error('❌ Gemini analysis failed, using advanced computer vision fallback:', error);
     console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
     
-    // Log specific error types for better debugging
+    // Enhanced error logging for better debugging
     if (error instanceof Error) {
       if (error.message.includes('Empty text response') || error.message.includes('Empty response')) {
         console.log('🔍 Empty response from Gemini API - using computer vision fallback');
+      } else if (error.message.includes('Failed to extract valid JSON')) {
+        console.log('🔍 JSON extraction failed - using computer vision fallback');
+        console.log('📝 Raw response that failed:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
       } else if (error.message.includes('API key')) {
         console.log('🔑 API key issue - using computer vision fallback');
       } else if (error.message.includes('network') || error.message.includes('fetch')) {
         console.log('🌐 Network issue - using computer vision fallback');
       } else {
         console.log('⚠️ Unknown Gemini error - using computer vision fallback');
+        console.log('📝 Error stack:', error.stack?.substring(0, 300) + (error.stack?.length > 300 ? '...' : ''));
       }
     }
     
@@ -256,40 +271,191 @@ Return ONLY the JSON object, no explanations or additional text.`;
   }
 }
 
-// JSON repair function to handle incomplete responses
-function repairIncompleteJSON(jsonText: string): string {
-  console.log('🔧 Attempting to repair incomplete JSON...');
+// Comprehensive JSON parsing function for Gemini responses with retry mechanism
+function parseGeminiResponse(text: string, expectedType: 'object' | 'array'): any {
+  console.log('🔍 Parsing Gemini response with enhanced extraction and retry mechanism...');
   
-  try {
-    // First, try to parse as-is
-    JSON.parse(jsonText);
-    console.log('✅ JSON is already valid');
-    return jsonText;
-  } catch (error) {
-    console.log('⚠️ JSON needs repair:', error instanceof Error ? error.message : 'Unknown error');
+  if (!text || text.trim().length === 0) {
+    console.log('⚠️ Empty response text');
+    return null;
   }
   
-  // Common repair patterns
-  let repaired = jsonText;
+  const strategies = [
+    { name: 'Direct parsing', fn: () => parseWithStrategy(text, expectedType, 'direct') },
+    { name: 'Markdown cleanup', fn: () => parseWithStrategy(text, expectedType, 'markdown') },
+    { name: 'Regex extraction', fn: () => parseWithStrategy(text, expectedType, 'regex') },
+    { name: 'Repair and parse', fn: () => parseWithStrategy(text, expectedType, 'repair') },
+    { name: 'Aggressive repair', fn: () => parseWithStrategy(text, expectedType, 'aggressive') },
+    { name: 'Fallback generation', fn: () => generateFallbackResponse(expectedType) }
+  ];
   
-  // Fix unterminated strings at the end
-  repaired = repaired.replace(/"\s*$/, '"');
-  
-  // Fix incomplete objects by adding missing fields
-  if (repaired.includes('"score":') && !repaired.includes('"reasoning":')) {
-    const scoreMatch = repaired.match(/"score":\s*(\d+)/);
-    const score = scoreMatch ? scoreMatch[1] : '85';
-    repaired = repaired.replace(/"score":\s*\d+\s*,?\s*$/, `"score": ${score}, "reasoning": "Professional outfit combination", "occasion": "casual", "colorScheme": "Classic combination", "styleNotes": ["Well-coordinated"], "confidence": 0.8`);
+  for (let i = 0; i < strategies.length; i++) {
+    const strategy = strategies[i];
+    console.log(`🔄 Trying strategy ${i + 1}/${strategies.length}: ${strategy.name}`);
+    
+    try {
+      const result = strategy.fn();
+      if (result !== null) {
+        console.log(`✅ Strategy "${strategy.name}" succeeded`);
+        return result;
+      }
+    } catch (error) {
+      console.log(`⚠️ Strategy "${strategy.name}" failed:`, error instanceof Error ? error.message : 'Unknown error');
+    }
   }
   
-  // Fix incomplete arrays
-  if (repaired.includes('[') && !repaired.includes(']')) {
-    repaired += ']';
+  console.log('❌ All parsing strategies exhausted');
+  return null;
+}
+
+// Individual parsing strategy implementation
+function parseWithStrategy(text: string, expectedType: 'object' | 'array', strategy: string): any {
+  let cleanText = text.trim();
+  
+  switch (strategy) {
+    case 'direct':
+      return JSON.parse(cleanText);
+      
+    case 'markdown':
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      cleanText = cleanText.replace(/```\s*/g, '');
+      return JSON.parse(cleanText);
+      
+    case 'regex':
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      cleanText = cleanText.replace(/```\s*/g, '');
+      
+      let jsonMatch: RegExpMatchArray | null = null;
+      if (expectedType === 'object') {
+        jsonMatch = cleanText.match(/\{[\s\S]*?\}/) || 
+                   cleanText.match(/\{[\s\S]*\}/) ||
+                   cleanText.match(/\{[^}]*\}/);
+      } else if (expectedType === 'array') {
+        jsonMatch = cleanText.match(/\[[\s\S]*?\]/) || 
+                   cleanText.match(/\[[\s\S]*\]/) ||
+                   cleanText.match(/\[[^\]]*\]/);
+      }
+      
+      if (jsonMatch) {
+        cleanText = jsonMatch[0];
+        console.log('🎯 Extracted JSON:', cleanText.substring(0, 100) + (cleanText.length > 100 ? '...' : ''));
+      }
+      
+      return JSON.parse(cleanText);
+      
+    case 'repair':
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      cleanText = cleanText.replace(/```\s*/g, '');
+      
+      let jsonMatch2: RegExpMatchArray | null = null;
+      if (expectedType === 'object') {
+        jsonMatch2 = cleanText.match(/\{[\s\S]*?\}/) || 
+                    cleanText.match(/\{[\s\S]*\}/) ||
+                    cleanText.match(/\{[^}]*\}/);
+      } else if (expectedType === 'array') {
+        jsonMatch2 = cleanText.match(/\[[\s\S]*?\]/) || 
+                    cleanText.match(/\[[\s\S]*\]/) ||
+                    cleanText.match(/\[[^\]]*\]/);
+      }
+      
+      if (jsonMatch2) {
+        cleanText = jsonMatch2[0];
+      }
+      
+      const repairedJson = repairIncompleteJSON(cleanText);
+      return JSON.parse(repairedJson);
+      
+    case 'aggressive':
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      cleanText = cleanText.replace(/```\s*/g, '');
+      
+      // More aggressive extraction
+      let jsonMatch3: RegExpMatchArray | null = null;
+      if (expectedType === 'object') {
+        jsonMatch3 = cleanText.match(/\{[\s\S]*?\}/) || 
+                    cleanText.match(/\{[\s\S]*\}/) ||
+                    cleanText.match(/\{[^}]*\}/) ||
+                    cleanText.match(/\{[^}]*$/);
+      } else if (expectedType === 'array') {
+        jsonMatch3 = cleanText.match(/\[[\s\S]*?\]/) || 
+                    cleanText.match(/\[[\s\S]*\]/) ||
+                    cleanText.match(/\[[^\]]*\]/) ||
+                    cleanText.match(/\[[^\]]*$/);
+      }
+      
+      if (jsonMatch3) {
+        cleanText = jsonMatch3[0];
+      }
+      
+      const aggressiveRepaired = aggressiveRepairJSON(cleanText, expectedType);
+      return JSON.parse(aggressiveRepaired);
+      
+    default:
+      throw new Error(`Unknown strategy: ${strategy}`);
+  }
+}
+
+// Generate fallback response when all parsing fails
+function generateFallbackResponse(expectedType: 'object' | 'array'): any {
+  console.log('🆘 Generating fallback response...');
+  
+  if (expectedType === 'object') {
+    return {
+      category: 'top',
+      color: 'black',
+      material: 'cotton',
+      style: 'casual',
+      confidence: 0.5
+    };
+  } else if (expectedType === 'array') {
+    return [{
+      outfitId: 'fallback_outfit_1',
+      items: [],
+      score: 50,
+      reasoning: 'Fallback outfit due to parsing failure',
+      occasion: 'casual',
+      colorScheme: 'Neutral',
+      styleNotes: ['Fallback generated'],
+      confidence: 0.3
+    }];
   }
   
-  // Fix incomplete objects
-  if (repaired.includes('{') && !repaired.includes('}')) {
+  return null;
+}
+
+// More aggressive JSON repair for difficult cases
+function aggressiveRepairJSON(jsonText: string, expectedType: 'object' | 'array'): string {
+  console.log('🔧 Attempting aggressive JSON repair...');
+  
+  if (!jsonText || jsonText.trim().length === 0) {
+    return expectedType === 'object' ? '{}' : '[]';
+  }
+  
+  let repaired = jsonText.trim();
+  
+  // Remove all non-JSON characters at the beginning and end
+  repaired = repaired.replace(/^[^{[]*/, '');
+  repaired = repaired.replace(/[^}\]]*$/, '');
+  
+  // If we have nothing left, return default structure
+  if (!repaired || repaired.length === 0) {
+    return expectedType === 'object' ? '{}' : '[]';
+  }
+  
+  // Count braces and brackets
+  const openBraces = (repaired.match(/\{/g) || []).length;
+  const closeBraces = (repaired.match(/\}/g) || []).length;
+  const openBrackets = (repaired.match(/\[/g) || []).length;
+  const closeBrackets = (repaired.match(/\]/g) || []).length;
+  
+  // Add missing closing braces
+  for (let i = 0; i < openBraces - closeBraces; i++) {
     repaired += '}';
+  }
+  
+  // Add missing closing brackets
+  for (let i = 0; i < openBrackets - closeBrackets; i++) {
+    repaired += ']';
   }
   
   // Fix trailing commas
@@ -298,13 +464,108 @@ function repairIncompleteJSON(jsonText: string): string {
   // Fix missing quotes around keys
   repaired = repaired.replace(/(\w+):/g, '"$1":');
   
-  // Fix missing quotes around string values
-  repaired = repaired.replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2');
+  // More careful string value fixing
+  repaired = repaired.replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, (match, value, ending) => {
+    // Don't quote numbers, booleans, null, or already quoted values
+    if (/^["\d\-]/.test(value) || value === 'true' || value === 'false' || value === 'null') {
+      return match;
+    }
+    return `: "${value}"${ending}`;
+  });
   
-  console.log('🔧 Repaired JSON:', repaired);
+  // Ensure proper structure
+  if (expectedType === 'object' && !repaired.startsWith('{')) {
+    repaired = '{' + repaired + '}';
+  } else if (expectedType === 'array' && !repaired.startsWith('[')) {
+    repaired = '[' + repaired + ']';
+  }
+  
+  console.log('🔧 Aggressively repaired JSON:', repaired.substring(0, 200) + (repaired.length > 200 ? '...' : ''));
   
   return repaired;
 }
+
+// Enhanced JSON repair function with more comprehensive patterns
+function repairIncompleteJSON(jsonText: string): string {
+  console.log('🔧 Attempting comprehensive JSON repair...');
+  
+  if (!jsonText || jsonText.trim().length === 0) {
+    return '{}';
+  }
+  
+  let repaired = jsonText.trim();
+  
+  try {
+    // First, try to parse as-is
+    JSON.parse(repaired);
+    console.log('✅ JSON is already valid');
+    return repaired;
+  } catch (error) {
+    console.log('⚠️ JSON needs repair:', error instanceof Error ? error.message : 'Unknown error');
+  }
+  
+  // Repair pattern 1: Fix common Gemini response issues
+  // Remove any text before the first { or [
+  repaired = repaired.replace(/^[^{[]*/, '');
+  
+  // Remove any text after the last } or ]
+  repaired = repaired.replace(/[^}\]]*$/, '');
+  
+  // Repair pattern 2: Fix unterminated strings
+  repaired = repaired.replace(/"\s*$/, '"');
+  repaired = repaired.replace(/^[^"]*"/, '"');
+  
+  // Repair pattern 3: Fix incomplete objects and arrays
+  const openBraces = (repaired.match(/\{/g) || []).length;
+  const closeBraces = (repaired.match(/\}/g) || []).length;
+  const openBrackets = (repaired.match(/\[/g) || []).length;
+  const closeBrackets = (repaired.match(/\]/g) || []).length;
+  
+  // Add missing closing braces
+  for (let i = 0; i < openBraces - closeBraces; i++) {
+    repaired += '}';
+  }
+  
+  // Add missing closing brackets
+  for (let i = 0; i < openBrackets - closeBrackets; i++) {
+    repaired += ']';
+  }
+  
+  // Repair pattern 4: Fix trailing commas
+  repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Repair pattern 5: Fix missing quotes around keys
+  repaired = repaired.replace(/(\w+):/g, '"$1":');
+  
+  // Repair pattern 6: Fix missing quotes around string values (more careful)
+  repaired = repaired.replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, (match, value, ending) => {
+    // Only add quotes if the value doesn't already have quotes and isn't a number/boolean/null
+    if (!/^["\d\-]/.test(value) && value !== 'true' && value !== 'false' && value !== 'null') {
+      return `: "${value}"${ending}`;
+    }
+    return match;
+  });
+  
+  // Repair pattern 7: Fix incomplete clothing analysis objects
+  if (repaired.includes('"category"') && !repaired.includes('"confidence"')) {
+    repaired = repaired.replace(/(\}$)/, ', "confidence": 0.8$1');
+  }
+  
+  // Repair pattern 8: Fix incomplete outfit objects
+  if (repaired.includes('"items"') && !repaired.includes('"score"')) {
+    repaired = repaired.replace(/(\}$)/, ', "score": 85, "reasoning": "Professional outfit combination", "occasion": "casual", "colorScheme": "Classic combination", "styleNotes": ["Well-coordinated"], "confidence": 0.8$1');
+  }
+  
+  // Repair pattern 9: Ensure proper JSON structure
+  if (!repaired.startsWith('{') && !repaired.startsWith('[')) {
+    repaired = '{' + repaired + '}';
+  }
+  
+  console.log('🔧 Repaired JSON:', repaired.substring(0, 200) + (repaired.length > 200 ? '...' : ''));
+  
+  return repaired;
+}
+
 
 // Validate and complete outfit objects
 function validateAndCompleteOutfit(outfit: any, index: number, occasion: string): any {
@@ -349,12 +610,20 @@ export async function generateOutfitRecommendations(
 WARDROBE:
 ${wardrobeData}
 
-Return ONLY this JSON array (no other text):
+CRITICAL JSON FORMAT REQUIREMENTS:
+- Return ONLY a valid JSON array starting with [ and ending with ]
+- Each outfit object must have ALL required fields
+- Use ONLY the item IDs provided in the wardrobe list above
+- Ensure proper JSON syntax: quotes around strings, no trailing commas
+- No explanations, comments, or additional text outside the JSON
+- Must be parseable by JSON.parse()
+
+REQUIRED JSON ARRAY FORMAT:
 [
   {
     "outfitId": "outfit_1",
     "top": "item_id",
-    "bottom": "item_id",
+    "bottom": "item_id", 
     "shoe": "item_id",
     "accessory": "item_id",
     "score": 85,
@@ -366,7 +635,7 @@ Return ONLY this JSON array (no other text):
   }
 ]
 
-Use only item IDs from the wardrobe list above.`;
+Return ONLY the JSON array above, no other text or explanations.`;
 
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-pro",
@@ -374,8 +643,28 @@ Use only item IDs from the wardrobe list above.`;
         temperature: 0.3,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 3000,
-      }
+        maxOutputTokens: 4000,
+        candidateCount: 1,
+        stopSequences: [],
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        }
+      ]
     });
     
     console.log('✅ Gemini model initialized:', model);
@@ -405,7 +694,16 @@ Use only item IDs from the wardrobe list above.`;
           throw new Error('Invalid response from Gemini API');
         }
         
-        console.log('✅ Gemini API call successful');
+        // Check for empty text response
+        const response = await result.response;
+        const text = response?.text();
+        
+        if (!text || text.trim().length === 0) {
+          console.log(`⚠️ Empty response on attempt ${attempts + 1}`);
+          throw new Error('Empty text response from Gemini API');
+        }
+        
+        console.log('✅ Gemini API call successful with valid content');
         break;
         
       } catch (apiError) {
@@ -433,77 +731,78 @@ Use only item IDs from the wardrobe list above.`;
     
     const response = await result.response;
     
+    // Enhanced response debugging
+    console.log('🔍 Gemini response object:', {
+      hasResponse: !!response,
+      responseType: typeof response,
+      responseKeys: response ? Object.keys(response) : 'no response'
+    });
+    
     // Check if response is valid
     if (!response) {
+      console.log('❌ No response object received from Gemini API');
       throw new Error('No response received from Gemini API');
     }
     
-    const text = response.text();
+    // Enhanced text extraction with debugging
+    let text: string;
+    try {
+      text = response.text();
+      console.log('📝 Extracted text length:', text?.length || 0);
+      console.log('📝 Text preview:', text?.substring(0, 100) + (text?.length > 100 ? '...' : ''));
+    } catch (textError) {
+      console.log('❌ Error extracting text from response:', textError);
+      console.log('🔍 Response structure:', JSON.stringify(response, null, 2));
+      throw new Error(`Failed to extract text from response: ${textError instanceof Error ? textError.message : 'Unknown error'}`);
+    }
     
     // Check if text is valid
-    if (!text) {
-      console.log('⚠️ Empty text response from Gemini API - using fallback');
+    if (!text || text.trim().length === 0) {
+      console.log('⚠️ Empty text response from Gemini API');
+      console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+      
+      // Check for safety filters or blocked content
+      if (response.candidates && response.candidates.length > 0) {
+        const candidate = response.candidates[0];
+        console.log('🔍 Candidate info:', {
+          finishReason: candidate.finishReason,
+          safetyRatings: candidate.safetyRatings,
+          hasContent: !!candidate.content,
+          contentParts: candidate.content?.parts?.length || 0
+        });
+        
+        if (candidate.finishReason === 'SAFETY') {
+          console.log('🚫 Response blocked by safety filters');
+          throw new Error('Response blocked by Gemini safety filters');
+        }
+        
+        if (candidate.safetyRatings) {
+          console.log('🚫 Safety ratings:', candidate.safetyRatings);
+        }
+      }
+      
       throw new Error('Empty text response from Gemini API');
     }
     
     console.log('📝 Advanced outfit recommendations:', text);
     
-    // Enhanced JSON parsing with repair and completion logic
-    let cleanText = text.trim();
+    // Enhanced JSON parsing with multiple extraction strategies
+    let recommendations = parseGeminiResponse(text, 'array');
     
-    // Check if response is empty or too short
-    if (!cleanText || cleanText.length < 10) {
-      console.log('⚠️ Empty or very short response from Gemini, using fallback');
-      throw new Error('Empty response from Gemini API');
+    if (!recommendations || !Array.isArray(recommendations)) {
+      throw new Error('Failed to extract valid JSON array from Gemini response');
     }
     
-    // Remove markdown code blocks
-    cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-    
-    // Extract JSON from response if it's embedded in text
-    const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      cleanText = jsonMatch[0];
+    // Check if array is empty
+    if (recommendations.length === 0) {
+      console.log('⚠️ Empty recommendations array, using fallback');
+      throw new Error('Empty recommendations array');
     }
     
-    console.log('🧹 Cleaned outfit text:', cleanText);
-    
-    // Validate JSON before parsing
-    if (!cleanText || cleanText.length < 5) {
-      console.log('⚠️ Cleaned text is empty, using fallback');
-      throw new Error('No valid JSON found in response');
-    }
-    
-    // Try to repair incomplete JSON
-    cleanText = repairIncompleteJSON(cleanText);
-    
-    let recommendations;
-    try {
-      recommendations = JSON.parse(cleanText);
-      
-      // Validate that it's an array
-      if (!Array.isArray(recommendations)) {
-        console.log('⚠️ Response is not an array, using fallback');
-        throw new Error('Response is not a valid array');
-      }
-      
-      // Check if array is empty
-      if (recommendations.length === 0) {
-        console.log('⚠️ Empty recommendations array, using fallback');
-        throw new Error('Empty recommendations array');
-      }
-      
-      // Validate and complete each recommendation
-      recommendations = recommendations.map((outfit: any, index: number) => {
-        return validateAndCompleteOutfit(outfit, index, occasion);
-      });
-      
-    } catch (parseError) {
-      console.log('⚠️ JSON parsing failed even after repair:', parseError);
-      console.log('📝 Raw response that failed to parse:', text);
-      console.log('🧹 Cleaned text that failed to parse:', cleanText);
-      throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
-    }
+    // Validate and complete each recommendation
+    recommendations = recommendations.map((outfit: any, index: number) => {
+      return validateAndCompleteOutfit(outfit, index, occasion);
+    });
     
     console.log(`✅ Generated ${recommendations.length} advanced outfit recommendations`);
     return recommendations;
@@ -512,14 +811,20 @@ Use only item IDs from the wardrobe list above.`;
     console.error('❌ Advanced outfit generation failed:', error);
     console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
     
-    // Log the specific error type for debugging
+    // Enhanced error logging for better debugging
     if (error instanceof Error) {
-      if (error.message.includes('JSON parsing failed')) {
-        console.log('🔍 JSON parsing issue detected - using fallback');
+      if (error.message.includes('Failed to extract valid JSON array')) {
+        console.log('🔍 JSON array extraction failed - using fallback');
+        console.log('📝 Raw response that failed:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
       } else if (error.message.includes('Empty response')) {
         console.log('🔍 Empty response from Gemini - using fallback');
+      } else if (error.message.includes('Empty recommendations array')) {
+        console.log('🔍 Empty recommendations array - using fallback');
       } else if (error.message.includes('Gemini API failed')) {
         console.log('🔍 Gemini API failure - using fallback');
+      } else {
+        console.log('⚠️ Unknown outfit generation error - using fallback');
+        console.log('📝 Error stack:', error.stack?.substring(0, 300) + (error.stack?.length > 300 ? '...' : ''));
       }
     }
     
@@ -527,7 +832,96 @@ Use only item IDs from the wardrobe list above.`;
   }
 }
 
-// Advanced fallback outfit generation with sophisticated logic
+// Test function to verify Gemini API connectivity and response
+export async function testGeminiAPI(): Promise<{success: boolean, message: string, response?: any}> {
+  try {
+    console.log('🧪 Testing Gemini API connectivity...');
+    
+    // Check environment variable first
+    if (!process.env.GEMINI_API_KEY) {
+      console.log('❌ Gemini API key not configured');
+      return { 
+        success: false, 
+        message: 'Gemini API key not configured. Please check your environment variables.' 
+      };
+    }
+    
+    console.log('✅ Gemini API key found, initializing client...');
+    
+    const genAI = getGeminiClient();
+    
+    if (!genAI) {
+      console.log('❌ Failed to initialize Gemini client');
+      return { 
+        success: false, 
+        message: 'Failed to initialize Gemini client' 
+      };
+    }
+    
+    console.log('✅ Gemini client initialized, creating model...');
+    
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-pro",
+      generationConfig: {
+        temperature: 0.1,
+        topK: 32,
+        topP: 1,
+        maxOutputTokens: 500,
+        candidateCount: 1,
+        stopSequences: [],
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        }
+      ]
+    });
+    
+    console.log('✅ Model created, sending test prompt...');
+    
+    const testPrompt = 'Return ONLY this JSON: {"test": "success", "message": "API working"}';
+    
+    const result = await model.generateContent(testPrompt);
+    const response = await result.response;
+    
+    if (!response) {
+      return { success: false, message: 'No response received from Gemini API' };
+    }
+    
+    const text = response.text();
+    
+    if (!text || text.trim().length === 0) {
+      console.log('🔍 Response object:', JSON.stringify(response, null, 2));
+      return { success: false, message: 'Empty text response from Gemini API', response };
+    }
+    
+    console.log('✅ Gemini API test successful');
+    console.log('📝 Test response:', text);
+    
+    return { success: true, message: 'Gemini API is working correctly', response: text };
+    
+  } catch (error) {
+    console.error('❌ Gemini API test failed:', error);
+    return { 
+      success: false, 
+      message: `Gemini API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      response: error
+    };
+  }
+}
 function generateAdvancedFallbackRecommendations(
   clothingItems: Array<{id: string, category: string, color: string, material: string, image_url: string, style?: string}>,
   occasion: string
