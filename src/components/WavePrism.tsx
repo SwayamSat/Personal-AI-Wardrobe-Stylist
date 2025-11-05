@@ -80,9 +80,9 @@ function mapSpeedUiToInternal(ui: number): number {
   return mapLinear(ui, 0.1, 1, 0.1, 5);
 }
 
-// Thickness: UI [0.1..1] → internal [0.01..0.2]
+// Thickness: UI [0.1..1] → internal [0.005..0.15] (reduced max for thinner lines)
 function mapThicknessUiToInternal(ui: number): number {
-  return mapLinear(ui, 0.1, 1, 0.01, 0.2);
+  return mapLinear(ui, 0.1, 1, 0.005, 0.15);
 }
 
 // Distortion: UI [0..1] → internal [0..0.2]
@@ -144,7 +144,7 @@ export default function WavePrism({
   // Adjust effect intensity based on theme (much more visible in light mode)
   const themeOpacity = theme === 'dark' ? 0.5 : 1.0;
   const themeGlow = theme === 'dark' ? glow * 0.9 : glow * 10.5;
-  const themeBeamThickness = theme === 'dark' ? beamThickness : beamThickness * 1.5;
+  const themeBeamThickness = theme === 'dark' ? beamThickness : beamThickness * 1.2;
 
   useEffect(() => {
     // Dynamically import Three.js
@@ -339,7 +339,7 @@ export default function WavePrism({
     if (refs.uniforms) {
       // Recalculate theme-dependent values
       const currentThemeGlow = theme === 'dark' ? glow * 0.9 : glow * 10.5;
-      const currentThemeBeamThickness = theme === 'dark' ? beamThickness : beamThickness * 1.5;
+      const currentThemeBeamThickness = theme === 'dark' ? beamThickness : beamThickness * 1.2;
       
       refs.uniforms.xScale.value = mapFrequencyUiToInternal(xScale);
       refs.uniforms.yScale.value = mapAmplitudeUiToInternal(yScale);
