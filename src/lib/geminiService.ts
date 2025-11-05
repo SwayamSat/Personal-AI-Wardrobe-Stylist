@@ -1,6 +1,6 @@
 // Professional Gemini Service for Personal Wardrobe Stylist
 // SECURITY NOTE: Never log API keys or sensitive environment variables
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, FinishReason } from "@google/generative-ai";
 import { analyzeImageColorsAdvanced, analyzeMaterialFromImage } from './colorAnalysis';
 
 // Initialize Gemini at runtime to avoid webpack issues
@@ -212,8 +212,10 @@ Return ONLY the JSON object, no explanations or additional text.`;
         });
         
         // Check if content was blocked by safety filters
-        if (candidate.finishReason === 'SAFETY' || candidate.finishReason === 'RECITATION') {
-          console.error('❌ Content blocked by safety filters. Finish reason:', candidate.finishReason);
+        const finishReason = candidate.finishReason as string;
+        if (finishReason === 'SAFETY' || finishReason === 'RECITATION' || 
+            finishReason === FinishReason.SAFETY || finishReason === FinishReason.RECITATION) {
+          console.error('❌ Content blocked by safety filters. Finish reason:', finishReason);
           if (candidate.safetyRatings) {
             const blockedRatings = candidate.safetyRatings.filter((r: any) => 
               r.probability === 'HIGH' || r.probability === 'MEDIUM'
@@ -225,9 +227,11 @@ Return ONLY the JSON object, no explanations or additional text.`;
           throw new Error('Response was blocked by Gemini safety filters. Try adjusting safety settings.');
         }
         
-        // Check if response was stopped due to length
-        if (candidate.finishReason === 'MAX_TOKENS' || candidate.finishReason === 'LENGTH') {
-          console.warn('⚠️ Response truncated due to token limit. Finish reason:', candidate.finishReason);
+        // Check if response was stopped due to length (handle string values)
+        const finishReasonStr = String(finishReason);
+        if (finishReasonStr.includes('MAX') || finishReasonStr.includes('LENGTH') || 
+            finishReasonStr.includes('TOKEN')) {
+          console.warn('⚠️ Response truncated due to token limit. Finish reason:', finishReason);
         }
       }
       
@@ -1069,8 +1073,10 @@ Return ONLY the JSON array above, no other text or explanations.`;
         });
         
         // Check if content was blocked by safety filters
-        if (candidate.finishReason === 'SAFETY' || candidate.finishReason === 'RECITATION') {
-          console.error('❌ Content blocked by safety filters. Finish reason:', candidate.finishReason);
+        const finishReason = candidate.finishReason as string;
+        if (finishReason === 'SAFETY' || finishReason === 'RECITATION' || 
+            finishReason === FinishReason.SAFETY || finishReason === FinishReason.RECITATION) {
+          console.error('❌ Content blocked by safety filters. Finish reason:', finishReason);
           if (candidate.safetyRatings) {
             const blockedRatings = candidate.safetyRatings.filter((r: any) => 
               r.probability === 'HIGH' || r.probability === 'MEDIUM'
@@ -1082,9 +1088,11 @@ Return ONLY the JSON array above, no other text or explanations.`;
           throw new Error('Response was blocked by Gemini safety filters. Try adjusting safety settings.');
         }
         
-        // Check if response was stopped due to length
-        if (candidate.finishReason === 'MAX_TOKENS' || candidate.finishReason === 'LENGTH') {
-          console.warn('⚠️ Response truncated due to token limit. Finish reason:', candidate.finishReason);
+        // Check if response was stopped due to length (handle string values)
+        const finishReasonStr = String(finishReason);
+        if (finishReasonStr.includes('MAX') || finishReasonStr.includes('LENGTH') || 
+            finishReasonStr.includes('TOKEN')) {
+          console.warn('⚠️ Response truncated due to token limit. Finish reason:', finishReason);
         }
       }
       
