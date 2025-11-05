@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { ArrowLeft, Shield, Eye, Database, Lock, Users, AlertCircle, CheckCircle } from 'lucide-react'
+import PageAnimation from '@/components/PageAnimation'
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <PageAnimation className="min-h-screen text-foreground relative">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Header */}
         <div className="mb-8">
@@ -295,6 +296,6 @@ export default function PrivacyPage() {
           </section>
         </div>
       </div>
-    </div>
+    </PageAnimation>
   )
 }

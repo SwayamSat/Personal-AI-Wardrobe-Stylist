@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import Footer from "@/components/Footer";
+import WavePrism from "@/components/WavePrism";
 
 export const metadata: Metadata = {
   title: "WardrobeAI - Personal AI Wardrobe Stylist",
@@ -24,10 +25,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="dark">
       <body className="antialiased min-h-screen flex flex-col">
         <ThemeProvider>
-          <main className="flex-1">
+          <div className="fixed inset-0 -z-10">
+            <WavePrism 
+              speed={0.2}
+              beamThickness={1.0}
+              distortion={0.25}
+              xScale={0.5}
+              yScale={0.3}
+              glow={1.8}
+              backgroundColor="transparent"
+              className="w-full h-full"
+            />
+          </div>
+          <main className="flex-1 relative z-10">
             {children}
           </main>
           <Footer />

@@ -56,6 +56,30 @@ body {
   background: hsl(var(--background));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+  position: relative;
+}
+
+/* Add a semi-transparent overlay that allows WavePrism to show through while maintaining theme */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: hsl(var(--background));
+  opacity: 0.35;
+  z-index: -9;
+  pointer-events: none;
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+/* Reduce overlay opacity in light mode to make animation more visible */
+:root:not(.dark) body::after {
+  opacity: 0.02;
+  background: hsl(0 0% 98%);
+}
+
+/* Keep dark mode overlay as is */
+.dark body::after {
+  opacity: 0.35;
 }
 
 @layer utilities {

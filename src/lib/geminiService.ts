@@ -87,7 +87,7 @@ export async function analyzeClothingItem(imageBase64: string): Promise<Clothing
   }
 
   try {
-    // Enhanced prompt optimized for Gemini 2.5 Pro's superior vision capabilities
+    // Enhanced prompt optimized for Gemini 2.0 Flash Exp's superior vision capabilities
     const prompt = `You are a world-class fashion stylist and color expert with access to advanced AI vision. Analyze this clothing item image with professional precision.
 
 TASK: Identify the clothing item's characteristics and return ONLY a valid JSON object.
@@ -103,7 +103,7 @@ REQUIRED OUTPUT FORMAT (return ONLY this JSON, no other text):
 
 ADVANCED ANALYSIS GUIDELINES:
 
-COLOR ANALYSIS (Use Gemini 2.5 Pro's enhanced vision):
+COLOR ANALYSIS (Use Gemini 2.0 Flash Exp's enhanced vision):
 - Identify PRIMARY color with fashion industry precision
 - Use specific color names: navy blue, burgundy, charcoal gray, cream white, forest green, coral pink, royal blue, emerald green, chocolate brown, midnight blue, steel blue, etc.
 - Consider color temperature (warm/cool undertones)
@@ -142,54 +142,154 @@ Return ONLY the JSON object, no explanations or additional text.`;
         temperature: 0.1,
         topK: 32,
         topP: 1,
-        maxOutputTokens: 500,
+        maxOutputTokens: 8192,
         candidateCount: 1,
         stopSequences: [],
       },
       safetySettings: [
         {
           category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         }
       ]
     });
     
+    // Detect MIME type from base64 or default to jpeg
+    let mimeType = "image/jpeg";
+    if (imageBase64.includes("iVBORw0KGgo")) {
+      mimeType = "image/png";
+    } else if (imageBase64.includes("UklGR")) {
+      mimeType = "image/webp";
+    }
+    
     const imagePart = {
       inlineData: {
         data: imageBase64,
-        mimeType: "image/jpeg"
+        mimeType: mimeType
       }
     };
 
     console.log('📡 Calling Gemini API with enhanced prompt...');
-    const result = await model.generateContent([prompt, imagePart]);
-    const response = await result.response;
+    console.log('📸 Image MIME type:', mimeType, 'Base64 length:', imageBase64.length);
     
-    if (!response) {
-      console.log('⚠️ No response from Gemini API - using fallback');
-      throw new Error('No response received from Gemini API');
+    let result, response, text;
+    try {
+      result = await model.generateContent([prompt, imagePart]);
+      response = await result.response;
+      
+      // Enhanced response debugging
+      console.log('🔍 Gemini response structure:', {
+        hasResponse: !!response,
+        responseType: typeof response,
+        responseKeys: response ? Object.keys(response) : 'no response'
+      });
+      
+      if (!response) {
+        console.log('⚠️ No response from Gemini API - using fallback');
+        throw new Error('No response received from Gemini API');
+      }
+      
+      // Check for blocked content or safety issues
+      if (response.candidates && response.candidates.length > 0) {
+        const candidate = response.candidates[0];
+        console.log('🔍 Candidate info:', {
+          finishReason: candidate.finishReason,
+          safetyRatings: candidate.safetyRatings,
+          hasContent: !!candidate.content,
+          contentParts: candidate.content?.parts?.length || 0
+        });
+        
+        // Check if content was blocked by safety filters
+        if (candidate.finishReason === 'SAFETY' || candidate.finishReason === 'RECITATION') {
+          console.error('❌ Content blocked by safety filters. Finish reason:', candidate.finishReason);
+          if (candidate.safetyRatings) {
+            const blockedRatings = candidate.safetyRatings.filter((r: any) => 
+              r.probability === 'HIGH' || r.probability === 'MEDIUM'
+            );
+            if (blockedRatings.length > 0) {
+              console.error('❌ Blocked safety ratings:', blockedRatings);
+            }
+          }
+          throw new Error('Response was blocked by Gemini safety filters. Try adjusting safety settings.');
+        }
+        
+        // Check if response was stopped due to length
+        if (candidate.finishReason === 'MAX_TOKENS' || candidate.finishReason === 'LENGTH') {
+          console.warn('⚠️ Response truncated due to token limit. Finish reason:', candidate.finishReason);
+        }
+      }
+      
+      // Extract text with better error handling
+      try {
+        text = response.text();
+      } catch (textError: any) {
+        console.error('❌ Error extracting text from response:', textError);
+        console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+        
+        // Try to extract from candidates directly
+        if (response.candidates && response.candidates.length > 0) {
+          const candidate = response.candidates[0];
+          if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+            const parts = candidate.content.parts;
+            text = parts.map((part: any) => part.text || '').join('');
+            console.log('✅ Extracted text from candidate parts:', text?.substring(0, 100));
+          }
+        }
+        
+        if (!text) {
+          throw new Error(`Failed to extract text from response: ${textError?.message || 'Unknown error'}`);
+        }
+      }
+      
+      if (!text || text.trim().length === 0) {
+        console.log('⚠️ Empty text response from Gemini API');
+        console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+        
+        // Check if there's any content in candidates
+        if (response.candidates && response.candidates.length > 0) {
+          const candidate = response.candidates[0];
+          console.log('🔍 Candidate details:', JSON.stringify(candidate, null, 2));
+        }
+        
+        throw new Error('Empty text response from Gemini API');
+      }
+      
+      console.log('📝 Raw Gemini response length:', text.length);
+      console.log('📝 Raw Gemini response preview:', text.substring(0, 200));
+    } catch (apiError: any) {
+      // Handle specific Gemini API errors
+      const errorMessage = apiError?.message || String(apiError);
+      if (errorMessage.includes('model') || errorMessage.includes('not found')) {
+        console.error('❌ Gemini model error:', errorMessage);
+        throw new Error(`Gemini model error: ${errorMessage}. Please check if the model name is correct.`);
+      }
+      if (errorMessage.includes('API key') || errorMessage.includes('authentication') || errorMessage.includes('401') || errorMessage.includes('403')) {
+        console.error('❌ Gemini API key error:', errorMessage);
+        throw new Error('Gemini API key authentication failed. Please check your GEMINI_API_KEY.');
+      }
+      if (errorMessage.includes('safety') || errorMessage.includes('blocked')) {
+        console.error('❌ Gemini safety filter blocked:', errorMessage);
+        throw new Error('Response was blocked by Gemini safety filters.');
+      }
+      if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+        console.error('❌ Gemini API rate limit:', errorMessage);
+        throw new Error('Gemini API rate limit exceeded. Please try again later.');
+      }
+      // Re-throw if it's already an Error, otherwise wrap it
+      throw apiError instanceof Error ? apiError : new Error(errorMessage);
     }
-    
-    const text = response.text();
-    
-    if (!text) {
-      console.log('⚠️ Empty text response from Gemini API - using fallback');
-      throw new Error('Empty text response from Gemini API');
-    }
-    
-    console.log('📝 Raw Gemini response:', text);
     
     // Enhanced JSON parsing with multiple extraction strategies
     let analysis = parseGeminiResponse(text, 'object');
@@ -315,25 +415,35 @@ function parseWithStrategy(text: string, expectedType: 'object' | 'array', strat
   
   switch (strategy) {
     case 'direct':
+      // Strip markdown code blocks first, even in direct parsing
+      cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
+      cleanText = cleanText.replace(/```\s*$/g, '').trim();
+      // Remove any leading/trailing markdown code blocks
+      cleanText = cleanText.replace(/^```\w*\s*/i, '').replace(/```\s*$/g, '').trim();
       return JSON.parse(cleanText);
       
     case 'markdown':
-      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      cleanText = cleanText.replace(/```\s*/g, '');
+      // Comprehensive markdown cleanup
+      cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
+      cleanText = cleanText.replace(/```\s*$/g, '').trim();
+      // Remove any remaining markdown markers
+      cleanText = cleanText.replace(/```\w*\s*/g, '').replace(/```/g, '').trim();
       return JSON.parse(cleanText);
       
     case 'regex':
-      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      cleanText = cleanText.replace(/```\s*/g, '');
+      // First, strip markdown code blocks
+      cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
+      cleanText = cleanText.replace(/```\s*$/g, '').trim();
+      cleanText = cleanText.replace(/```\w*\s*/g, '').replace(/```/g, '').trim();
       
       let jsonMatch: RegExpMatchArray | null = null;
       if (expectedType === 'object') {
-        jsonMatch = cleanText.match(/\{[\s\S]*?\}/) || 
-                   cleanText.match(/\{[\s\S]*\}/) ||
+        // Match JSON object, handling nested braces properly
+        jsonMatch = cleanText.match(/\{[\s\S]*\}/) || 
                    cleanText.match(/\{[^}]*\}/);
       } else if (expectedType === 'array') {
-        jsonMatch = cleanText.match(/\[[\s\S]*?\]/) || 
-                   cleanText.match(/\[[\s\S]*\]/) ||
+        // Match JSON array, handling nested brackets properly
+        jsonMatch = cleanText.match(/\[[\s\S]*\]/) || 
                    cleanText.match(/\[[^\]]*\]/);
       }
       
@@ -345,8 +455,10 @@ function parseWithStrategy(text: string, expectedType: 'object' | 'array', strat
       return JSON.parse(cleanText);
       
     case 'repair':
-      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      cleanText = cleanText.replace(/```\s*/g, '');
+      // Strip markdown code blocks first
+      cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
+      cleanText = cleanText.replace(/```\s*$/g, '').trim();
+      cleanText = cleanText.replace(/```\w*\s*/g, '').replace(/```/g, '').trim();
       
       let jsonMatch2: RegExpMatchArray | null = null;
       if (expectedType === 'object') {
@@ -376,8 +488,10 @@ function parseWithStrategy(text: string, expectedType: 'object' | 'array', strat
       }
       
     case 'string-repair':
-      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      cleanText = cleanText.replace(/```\s*/g, '');
+      // Strip markdown code blocks first
+      cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
+      cleanText = cleanText.replace(/```\s*$/g, '').trim();
+      cleanText = cleanText.replace(/```\w*\s*/g, '').replace(/```/g, '').trim();
       
       // Extract JSON
       let jsonMatch3: RegExpMatchArray | null = null;
@@ -427,8 +541,10 @@ function parseWithStrategy(text: string, expectedType: 'object' | 'array', strat
       }
       
     case 'truncation-repair':
-      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      cleanText = cleanText.replace(/```\s*/g, '');
+      // Strip markdown code blocks first
+      cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
+      cleanText = cleanText.replace(/```\s*$/g, '').trim();
+      cleanText = cleanText.replace(/```\w*\s*/g, '').replace(/```/g, '').trim();
       
       // Extract JSON
       let jsonMatch5: RegExpMatchArray | null = null;
@@ -493,8 +609,10 @@ function parseWithStrategy(text: string, expectedType: 'object' | 'array', strat
       }
       
     case 'aggressive':
-      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      cleanText = cleanText.replace(/```\s*/g, '');
+      // Strip markdown code blocks first
+      cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
+      cleanText = cleanText.replace(/```\s*$/g, '').trim();
+      cleanText = cleanText.replace(/```\w*\s*/g, '').replace(/```/g, '').trim();
       
       // More aggressive extraction
       let jsonMatch4: RegExpMatchArray | null = null;
@@ -850,7 +968,7 @@ export async function generateOutfitRecommendations(
       `${item.category.toUpperCase()}: ${item.color} ${item.material}${item.style ? ` (${item.style} style)` : ''} (ID: ${item.id})`
     ).join('\n');
 
-    // Enhanced prompt leveraging Gemini 2.5 Pro's advanced capabilities
+    // Enhanced prompt leveraging Gemini 1.5 Pro's advanced capabilities
     const prompt = `Create outfit recommendations for ${occasion} occasions.
 
 WARDROBE:
@@ -892,26 +1010,26 @@ Return ONLY the JSON array above, no other text or explanations.`;
         temperature: 0.3,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 5000,
+        maxOutputTokens: 8192,
         candidateCount: 1,
         stopSequences: [],
       },
       safetySettings: [
         {
           category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         }
       ]
     });
@@ -923,94 +1041,24 @@ Return ONLY the JSON array above, no other text or explanations.`;
     console.log('📝 Prompt preview:', prompt.substring(0, 200) + '...');
     
     // Enhanced Gemini API call with better error handling
-    let result;
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (attempts < maxAttempts) {
-      try {
-        console.log(`🔄 Gemini API attempt ${attempts + 1}/${maxAttempts}`);
-        
-        // Check if model is properly initialized
-        if (!model) {
-          throw new Error('Gemini model not properly initialized');
-        }
-        
-        result = await model.generateContent(prompt);
-        
-        // Check if result is valid
-        if (!result || !result.response) {
-          throw new Error('Invalid response from Gemini API');
-        }
-        
-        // Check for empty text response
-        const response = await result.response;
-        const text = response?.text();
-        
-        if (!text || text.trim().length === 0) {
-          console.log(`⚠️ Empty response on attempt ${attempts + 1}`);
-          throw new Error('Empty text response from Gemini API');
-        }
-        
-        console.log('✅ Gemini API call successful with valid content');
-        break;
-        
-      } catch (apiError) {
-        attempts++;
-        console.log(`⚠️ Gemini API attempt ${attempts} failed:`, apiError);
-        console.log(`⚠️ Error type:`, typeof apiError);
-        console.log(`⚠️ Error message:`, apiError instanceof Error ? apiError.message : 'Unknown error');
-        
-        if (attempts >= maxAttempts) {
-          console.log('❌ All Gemini API attempts failed, using fallback');
-          throw new Error(`Gemini API failed after ${maxAttempts} attempts: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`);
-        }
-        
-        // Wait before retry with exponential backoff
-        const delay = 1000 * Math.pow(2, attempts - 1);
-        console.log(`⏳ Waiting ${delay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    
-    if (!result) {
-      console.log('⚠️ No result after retries, using fallback');
-      return generateAdvancedFallbackRecommendations(clothingItems, occasion);
-    }
-    
-    const response = await result.response;
-    
-    // Enhanced response debugging
-    console.log('🔍 Gemini response object:', {
-      hasResponse: !!response,
-      responseType: typeof response,
-      responseKeys: response ? Object.keys(response) : 'no response'
-    });
-    
-    // Check if response is valid
-    if (!response) {
-      console.log('❌ No response object received from Gemini API');
-      throw new Error('No response received from Gemini API');
-    }
-    
-    // Enhanced text extraction with debugging
-    let text: string;
+    let result, response, text;
     try {
-      text = response.text();
-      console.log('📝 Extracted text length:', text?.length || 0);
-      console.log('📝 Text preview:', text?.substring(0, 100) + (text?.length > 100 ? '...' : ''));
-    } catch (textError) {
-      console.log('❌ Error extracting text from response:', textError);
-      console.log('🔍 Response structure:', JSON.stringify(response, null, 2));
-      throw new Error(`Failed to extract text from response: ${textError instanceof Error ? textError.message : 'Unknown error'}`);
-    }
-    
-    // Check if text is valid
-    if (!text || text.trim().length === 0) {
-      console.log('⚠️ Empty text response from Gemini API');
-      console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+      result = await model.generateContent(prompt);
+      response = await result.response;
       
-      // Check for safety filters or blocked content
+      // Enhanced response debugging
+      console.log('🔍 Gemini response structure:', {
+        hasResponse: !!response,
+        responseType: typeof response,
+        responseKeys: response ? Object.keys(response) : 'no response'
+      });
+      
+      if (!response) {
+        console.log('⚠️ No response from Gemini API - using fallback');
+        throw new Error('No response received from Gemini API');
+      }
+      
+      // Check for blocked content or safety issues
       if (response.candidates && response.candidates.length > 0) {
         const candidate = response.candidates[0];
         console.log('🔍 Candidate info:', {
@@ -1020,26 +1068,71 @@ Return ONLY the JSON array above, no other text or explanations.`;
           contentParts: candidate.content?.parts?.length || 0
         });
         
-        if (candidate.finishReason === 'SAFETY') {
-          console.log('🚫 Response blocked by safety filters');
-          throw new Error('Response blocked by Gemini safety filters');
+        // Check if content was blocked by safety filters
+        if (candidate.finishReason === 'SAFETY' || candidate.finishReason === 'RECITATION') {
+          console.error('❌ Content blocked by safety filters. Finish reason:', candidate.finishReason);
+          if (candidate.safetyRatings) {
+            const blockedRatings = candidate.safetyRatings.filter((r: any) => 
+              r.probability === 'HIGH' || r.probability === 'MEDIUM'
+            );
+            if (blockedRatings.length > 0) {
+              console.error('❌ Blocked safety ratings:', blockedRatings);
+            }
+          }
+          throw new Error('Response was blocked by Gemini safety filters. Try adjusting safety settings.');
         }
         
-        if (candidate.safetyRatings) {
-          console.log('🚫 Safety ratings:', candidate.safetyRatings);
+        // Check if response was stopped due to length
+        if (candidate.finishReason === 'MAX_TOKENS' || candidate.finishReason === 'LENGTH') {
+          console.warn('⚠️ Response truncated due to token limit. Finish reason:', candidate.finishReason);
         }
       }
       
-      throw new Error('Empty text response from Gemini API');
-    }
-    
-    console.log('📝 Advanced outfit recommendations:', text);
-    
-    // Enhanced JSON parsing with multiple extraction strategies
-    let recommendations = parseGeminiResponse(text, 'array');
-    
-    if (!recommendations || !Array.isArray(recommendations)) {
-      throw new Error('Failed to extract valid JSON array from Gemini response');
+      // Extract text with better error handling
+      try {
+        text = response.text();
+      } catch (textError: any) {
+        console.error('❌ Error extracting text from response:', textError);
+        console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+        
+        // Try to extract from candidates directly
+        if (response.candidates && response.candidates.length > 0) {
+          const candidate = response.candidates[0];
+          if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+            const parts = candidate.content.parts;
+            text = parts.map((part: any) => part.text || '').join('');
+            console.log('✅ Extracted text from candidate parts:', text?.substring(0, 100));
+          }
+        }
+        
+        if (!text) {
+          throw new Error(`Failed to extract text from response: ${textError?.message || 'Unknown error'}`);
+        }
+      }
+      
+      if (!text || text.trim().length === 0) {
+        console.log('⚠️ Empty text response from Gemini API');
+        console.log('🔍 Full response object:', JSON.stringify(response, null, 2));
+        
+        // Check if there's any content in candidates
+        if (response.candidates && response.candidates.length > 0) {
+          const candidate = response.candidates[0];
+          console.log('🔍 Candidate details:', JSON.stringify(candidate, null, 2));
+        }
+        
+        throw new Error('Empty text response from Gemini API');
+      }
+      
+      console.log('📝 Raw Gemini response length:', text.length);
+      console.log('📝 Raw Gemini response preview:', text.substring(0, 200));
+      
+      console.log('📝 Advanced outfit recommendations:', text);
+      
+      // Enhanced JSON parsing with multiple extraction strategies
+      let recommendations = parseGeminiResponse(text, 'array');
+      
+      if (!recommendations || !Array.isArray(recommendations)) {
+        throw new Error('Failed to extract valid JSON array from Gemini response');
       }
       
       // Check if array is empty
@@ -1052,10 +1145,31 @@ Return ONLY the JSON array above, no other text or explanations.`;
       recommendations = recommendations.map((outfit: any, index: number) => {
         return validateAndCompleteOutfit(outfit, index, occasion);
       });
-    
-    console.log(`✅ Generated ${recommendations.length} advanced outfit recommendations`);
-    return recommendations;
-    
+      
+      console.log(`✅ Generated ${recommendations.length} advanced outfit recommendations`);
+      return recommendations;
+    } catch (apiError: any) {
+      // Handle specific Gemini API errors
+      const errorMessage = apiError?.message || String(apiError);
+      if (errorMessage.includes('model') || errorMessage.includes('not found')) {
+        console.error('❌ Gemini model error:', errorMessage);
+        throw new Error(`Gemini model error: ${errorMessage}. Please check if the model name is correct.`);
+      }
+      if (errorMessage.includes('API key') || errorMessage.includes('authentication') || errorMessage.includes('401') || errorMessage.includes('403')) {
+        console.error('❌ Gemini API key error:', errorMessage);
+        throw new Error('Gemini API key authentication failed. Please check your GEMINI_API_KEY.');
+      }
+      if (errorMessage.includes('safety') || errorMessage.includes('blocked')) {
+        console.error('❌ Gemini safety filter blocked:', errorMessage);
+        throw new Error('Response was blocked by Gemini safety filters.');
+      }
+      if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+        console.error('❌ Gemini API rate limit:', errorMessage);
+        throw new Error('Gemini API rate limit exceeded. Please try again later.');
+      }
+      // Re-throw if it's already an Error, otherwise wrap it
+      throw apiError instanceof Error ? apiError : new Error(errorMessage);
+    }
   } catch (error) {
     console.error('❌ Advanced outfit generation failed:', error);
     console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
@@ -1114,26 +1228,26 @@ export async function testGeminiAPI(): Promise<{success: boolean, message: strin
         temperature: 0.1,
         topK: 32,
         topP: 1,
-        maxOutputTokens: 500,
+        maxOutputTokens: 8192,
         candidateCount: 1,
         stopSequences: [],
       },
       safetySettings: [
         {
           category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         },
         {
           category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH
         }
       ]
     });

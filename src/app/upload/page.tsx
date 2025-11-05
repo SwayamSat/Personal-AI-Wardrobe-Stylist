@@ -6,6 +6,7 @@ import { User } from '@supabase/supabase-js'
 import { Upload, Loader2, Check, X, Shirt, Footprints, ShoppingBag, Watch } from 'lucide-react'
 import Link from 'next/link'
 import Header from '@/components/Header'
+import PageAnimation from '@/components/PageAnimation'
 
 // Custom Trouser Icon Component
 const TrouserIcon = ({ className }: { className?: string }) => (
@@ -327,7 +328,7 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageAnimation className="min-h-screen relative">
       <Header />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -490,6 +491,6 @@ export default function UploadPage() {
           </div>
         )}
       </main>
-    </div>
+    </PageAnimation>
   )
 }

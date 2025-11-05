@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import { Loader2, CheckCircle, XCircle } from 'lucide-react'
+import PageAnimation from '@/components/PageAnimation'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -115,8 +116,8 @@ export default function AuthCallback() {
   }, [router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center max-w-md mx-auto p-6">
+    <PageAnimation className="min-h-screen flex items-center justify-center">
+      <div className="text-center max-w-md mx-auto p-6 bg-card/95 backdrop-blur-sm rounded-xl shadow-lg border border-border">
         {status === 'loading' && (
           <>
             <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-purple-600" />
@@ -159,6 +160,6 @@ export default function AuthCallback() {
           </>
         )}
       </div>
-    </div>
+    </PageAnimation>
   )
 }

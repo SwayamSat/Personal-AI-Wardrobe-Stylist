@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Lock, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import PageAnimation from '@/components/PageAnimation'
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
@@ -50,8 +51,8 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md mx-auto text-center">
+      <PageAnimation className="min-h-screen flex items-center justify-center">
+        <div className="bg-card/95 backdrop-blur-sm rounded-xl shadow-lg p-8 max-w-md mx-auto text-center border border-border">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
@@ -66,13 +67,13 @@ export default function ResetPasswordPage() {
             Go to Home
           </Link>
         </div>
-      </div>
+      </PageAnimation>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md mx-auto">
+    <PageAnimation className="min-h-screen flex items-center justify-center">
+      <div className="bg-card/95 backdrop-blur-sm rounded-xl shadow-lg p-8 max-w-md mx-auto border border-border">
         <div className="text-center mb-6">
           <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="h-8 w-8 text-purple-600" />
@@ -177,6 +178,6 @@ export default function ResetPasswordPage() {
           </Link>
         </div>
       </div>
-    </div>
+    </PageAnimation>
   )
 }

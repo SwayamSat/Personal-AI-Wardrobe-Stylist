@@ -10,6 +10,7 @@ import { LoginForm, SignupForm } from '@/components/AuthForms'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import Header from '@/components/Header'
 import { useTheme } from '@/lib/theme'
+import PageAnimation from '@/components/PageAnimation'
 
 type AuthMode = 'login' | 'signup' | null
 
@@ -178,15 +179,8 @@ function HomePageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300 relative overflow-hidden">
+    <PageAnimation className="min-h-screen text-foreground transition-colors duration-300 relative overflow-hidden">
       <Header onAuthClick={handleAuthClick} />
-      
-      {/* 3D Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/20 to-purple-600/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '4s'}}></div>
-      </div>
 
 
       {/* Auth Modal */}
@@ -427,7 +421,7 @@ function HomePageContent() {
           </div>
         )}
       </div>
-    </div>
+    </PageAnimation>
   )
 }
 

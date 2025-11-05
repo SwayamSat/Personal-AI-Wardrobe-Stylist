@@ -12,7 +12,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light')
+  const [theme, setTheme] = useState<Theme>('dark')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -23,9 +23,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (savedTheme) {
         setTheme(savedTheme)
       } else {
-        // Check system preference
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        setTheme(prefersDark ? 'dark' : 'light')
+        // Default to dark mode
+        setTheme('dark')
       }
     }
   }, [])
@@ -55,7 +54,7 @@ export function useTheme() {
   const context = useContext(ThemeContext)
   if (context === undefined) {
     // Return a default context instead of throwing an error
-    return { theme: 'light' as Theme, toggleTheme: () => {} }
+    return { theme: 'dark' as Theme, toggleTheme: () => {} }
   }
   return context
 }
