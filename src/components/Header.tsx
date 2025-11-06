@@ -142,22 +142,22 @@ export default function Header({ onAuthClick }: HeaderProps) {
               <div className="flex items-center space-x-0.5 xs:space-x-1 sm:space-x-3">
                 <Link
                   href="/upload"
-                  className="group relative px-1.5 xs:px-2 sm:px-4 py-1.5 xs:py-2 bg-primary text-primary-foreground rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95"
+                  className="group relative px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 bg-primary text-primary-foreground rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 text-xs xs:text-sm"
                 >
                   <div className="absolute inset-0 bg-primary/90 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="relative flex items-center">
-                    <Upload className="h-3 w-3 xs:h-4 xs:w-4 sm:mr-2" />
-                    <span className="text-xs xs:text-sm">Upload</span>
+                  <div className="relative flex items-center gap-1 xs:gap-1.5 sm:gap-2">
+                    <Upload className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
+                    <span className="hidden xs:inline">Upload</span>
                   </div>
                 </Link>
                 <Link
                   href="/outfits"
-                  className="group relative px-1.5 xs:px-2 sm:px-4 py-1.5 xs:py-2 bg-secondary text-secondary-foreground border border-border rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95"
+                  className="group relative px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 bg-secondary text-secondary-foreground border border-border rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 text-xs xs:text-sm"
                 >
                   <div className="absolute inset-0 bg-accent rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="relative flex items-center">
-                    <Sparkles className="h-3 w-3 xs:h-4 xs:w-4 sm:mr-2" />
-                    <span className="text-xs xs:text-sm">Outfits</span>
+                  <div className="relative flex items-center gap-1 xs:gap-1.5 sm:gap-2">
+                    <Sparkles className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
+                    <span className="hidden xs:inline">Outfits</span>
                   </div>
                 </Link>
                 <button
@@ -177,18 +177,18 @@ export default function Header({ onAuthClick }: HeaderProps) {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-0.5 xs:space-x-1 sm:space-x-3">
+              <div className="flex items-center space-x-1 xs:space-x-2 sm:space-x-3">
                 <button
                   onClick={() => onAuthClick?.('login')}
-                  className="px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all duration-300 active:scale-95"
+                  className="px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all duration-300 active:scale-95 text-xs xs:text-sm"
                 >
-                  <span className="text-xs xs:text-sm">Sign In</span>
+                  Sign In
                 </button>
                 <button
                   onClick={() => onAuthClick?.('signup')}
-                  className="px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors active:scale-95"
+                  className="px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors active:scale-95 text-xs xs:text-sm"
                 >
-                  <span className="text-xs xs:text-sm">Sign Up</span>
+                  Sign Up
                 </button>
               </div>
             )}

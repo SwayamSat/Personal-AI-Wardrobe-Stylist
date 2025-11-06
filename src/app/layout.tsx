@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import Footer from "@/components/Footer";
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,9 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <body className="antialiased min-h-screen flex flex-col">
+      <body className="antialiased min-h-screen flex flex-col overflow-x-hidden">
         <ThemeProvider>
-          <div className="fixed inset-0 -z-10">
+          <div className="fixed inset-0 -z-10 w-screen h-screen">
             <WavePrism 
               speed={0.2}
               beamThickness={0.2}
@@ -40,7 +46,7 @@ export default function RootLayout({
               className="w-full h-full"
             />
           </div>
-          <main className="flex-1 relative z-10">
+          <main className="flex-1 relative z-10 w-full">
             {children}
           </main>
           <Footer />

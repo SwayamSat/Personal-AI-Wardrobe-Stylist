@@ -330,10 +330,10 @@ export default function UploadPage() {
   return (
     <PageAnimation className="min-h-screen relative">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-4">Upload Your Clothes</h1>
-          <p className="text-muted-foreground">
+      <main className="max-w-4xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-4 xs:py-6 sm:py-8">
+        <div className="mb-6 xs:mb-8">
+          <h1 className="text-2xl xs:text-3xl font-bold text-foreground mb-3 xs:mb-4">Upload Your Clothes</h1>
+          <p className="text-sm xs:text-base text-muted-foreground">
             Upload photos of your clothing items to build your digital wardrobe. 
             Our AI will analyze each item to help create perfect outfit combinations.
           </p>
@@ -377,7 +377,7 @@ export default function UploadPage() {
               </button>
             </div>
 
-            <div className="bg-card rounded-lg shadow-sm border-2 border-dashed border-border p-8 text-center">
+            <div className="bg-card rounded-lg shadow-sm border-2 border-dashed border-border p-4 xs:p-6 sm:p-8 text-center">
               <input
                 type="file"
                 multiple
@@ -457,7 +457,7 @@ export default function UploadPage() {
         {uploadedItems.length > 0 && (
           <div className="mt-8">
             <h2 className="text-xl font-semibold text-foreground mb-4">Your Wardrobe</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 xs:gap-4">
               {uploadedItems.map((item) => (
                 <div key={item.id} className="bg-card rounded-lg shadow-sm overflow-hidden">
                   <div className="aspect-square bg-muted">
@@ -467,22 +467,23 @@ export default function UploadPage() {
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <div className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-card-foreground capitalize">
+                  <div className="p-2 xs:p-3">
+                    <div className="flex items-center justify-between mb-1.5 xs:mb-2">
+                      <span className="text-xs xs:text-sm font-medium text-card-foreground capitalize truncate flex-1">
                         {item.category}
                       </span>
                       <button
                         onClick={() => deleteItem(item.id)}
-                        className="text-muted-foreground hover:text-red-500"
+                        className="text-muted-foreground hover:text-red-500 flex-shrink-0 ml-1"
+                        aria-label="Delete item"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
                       </button>
                     </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <div>Color: {item.color}</div>
-                      <div>Material: {item.material}</div>
-                      {item.style && <div>Style: {item.style}</div>}
+                    <div className="text-xs text-muted-foreground space-y-0.5 xs:space-y-1">
+                      <div className="truncate">Color: {item.color}</div>
+                      <div className="truncate">Material: {item.material}</div>
+                      {item.style && <div className="truncate">Style: {item.style}</div>}
                     </div>
                   </div>
                 </div>

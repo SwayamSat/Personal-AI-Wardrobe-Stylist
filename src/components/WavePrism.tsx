@@ -164,11 +164,13 @@ export default function WavePrism({
       const canvas = canvasRef.current;
       const container = containerRef.current;
       
-      // Ensure canvas fills the component bounds
-      const containerWidth = container.clientWidth || window.innerWidth;
-      const containerHeight = container.clientHeight || window.innerHeight;
-      canvas.width = containerWidth;
-      canvas.height = containerHeight;
+      // Ensure canvas fills the component bounds with proper mobile support
+      const containerWidth = window.innerWidth || container.clientWidth || 1;
+      const containerHeight = window.innerHeight || container.clientHeight || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2 for performance
+      
+      canvas.width = containerWidth * dpr;
+      canvas.height = containerHeight * dpr;
       canvas.style.position = "absolute";
       canvas.style.top = "0";
       canvas.style.left = "0";
@@ -229,8 +231,10 @@ export default function WavePrism({
           preserveDrawingBuffer: true,
           antialias: false,
           alpha: true,
+          powerPreference: "high-performance",
         });
-        refs.renderer.setPixelRatio(window.devicePixelRatio);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2 for performance
+        refs.renderer.setPixelRatio(dpr);
         refs.renderer.setClearColor(new THREE.Color(0, 0, 0), 0);
         refs.renderer.setScissorTest(false);
 
@@ -268,12 +272,19 @@ export default function WavePrism({
       const handleResize = () => {
         if (!refs.renderer || !refs.uniforms || !container || !canvas) return;
         
-        const cw = container.clientWidth || window.innerWidth || 1;
-        const ch = container.clientHeight || window.innerHeight || 1;
+        // Use window dimensions for proper mobile support
+        const cw = window.innerWidth || container.clientWidth || 1;
+        const ch = window.innerHeight || container.clientHeight || 1;
         
-        canvas.width = cw;
-        canvas.height = ch;
+        // Set canvas size with device pixel ratio for crisp rendering
+        const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2 for performance
+        canvas.width = cw * dpr;
+        canvas.height = ch * dpr;
+        canvas.style.width = `${cw}px`;
+        canvas.style.height = `${ch}px`;
+        
         refs.renderer.setSize(cw, ch, false);
+        refs.renderer.setPixelRatio(dpr);
         refs.uniforms.resolution.value = [cw, ch];
         refs.uniforms.yOffset.value = -0.3;
         
@@ -375,6 +386,8 @@ export default function WavePrism({
         position: "fixed",
         top: 0,
         left: 0,
+        right: 0,
+        bottom: 0,
         display: "block",
         margin: 0,
         padding: 0,
@@ -394,6 +407,8 @@ export default function WavePrism({
           width: "100%",
           height: "100%",
           display: "block",
+          maxWidth: "100%",
+          maxHeight: "100%",
         }}
       />
     </div>

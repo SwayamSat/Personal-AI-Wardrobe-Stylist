@@ -185,8 +185,8 @@ function HomePageContent() {
 
       {/* Auth Modal */}
       {authMode && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="relative w-full max-w-xs mx-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 xs:p-4 sm:p-6">
+          <div className="relative w-full max-w-xs sm:max-w-sm mx-auto">
             <button
               onClick={() => {
                 setAuthMode(null)
@@ -230,7 +230,7 @@ function HomePageContent() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xs:gap-6 sm:gap-8 max-w-4xl mx-auto px-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xs:gap-6 sm:gap-8 max-w-4xl mx-auto px-2">
               <Link
                 href="/upload"
                 className="group relative p-4 xs:p-6 sm:p-8 bg-card border border-border rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 active:scale-95 touch-manipulation"
@@ -319,8 +319,8 @@ function HomePageContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xs:gap-6 sm:gap-8 max-w-5xl mx-auto mb-10 xs:mb-12 sm:mb-16 px-2">
-              <div className="group relative p-8 bg-card border border-border rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-6 sm:gap-8 max-w-5xl mx-auto mb-10 xs:mb-12 sm:mb-16 px-2">
+              <div className="group relative p-4 xs:p-6 sm:p-8 bg-card border border-border rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-purple-600/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                 <div className="relative text-center">
                   <div className="flex items-center justify-center mb-6">
@@ -372,9 +372,9 @@ function HomePageContent() {
               </div>
             </div>
 
-            <div className="bg-card/80 backdrop-blur-xl border border-border rounded-2xl shadow-lg p-8 max-w-4xl mx-auto">
-              <h2 className="text-2xl font-bold text-card-foreground mb-6">How It Works</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-card/80 backdrop-blur-xl border border-border rounded-2xl shadow-lg p-4 xs:p-6 sm:p-8 max-w-4xl mx-auto px-2 xs:px-4">
+              <h2 className="text-xl xs:text-2xl font-bold text-card-foreground mb-4 xs:mb-6">How It Works</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-6">
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
                     <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">

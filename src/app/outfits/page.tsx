@@ -164,12 +164,12 @@ export default function OutfitsPage() {
   return (
     <PageAnimation className="min-h-screen relative">
       <Header />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-4">Your Outfit Recommendations</h1>
+      <main className="max-w-7xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-4 xs:py-6 sm:py-8">
+        <div className="mb-6 xs:mb-8">
+          <h1 className="text-2xl xs:text-3xl font-bold text-foreground mb-3 xs:mb-4">Your Outfit Recommendations</h1>
           
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="flex flex-col sm:flex-row gap-3 xs:gap-4 items-start sm:items-center">
             <div className="flex items-center space-x-4">
               <label className="text-sm font-medium text-foreground">Occasion:</label>
               <select
@@ -220,7 +220,7 @@ export default function OutfitsPage() {
 
         {/* Outfits Grid */}
         {outfits.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 xs:gap-6">
             {outfits.map((outfit) => {
               const topItem = getItemById(outfit.top)
               const bottomItem = getItemById(outfit.bottom)
@@ -230,7 +230,7 @@ export default function OutfitsPage() {
               return (
                 <div key={outfit.outfitId} className="bg-card rounded-lg shadow-sm overflow-hidden">
                   {/* Outfit Images */}
-                  <div className="relative h-48 bg-muted">
+                  <div className="relative h-40 xs:h-48 bg-muted">
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="grid grid-cols-2 grid-rows-2 gap-1 w-full h-full p-2">
                         {/* Top */}
@@ -297,9 +297,9 @@ export default function OutfitsPage() {
                     </div>
                   </div>
 
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-medium text-card-foreground">Outfit</h3>
+                  <div className="p-3 xs:p-4">
+                    <div className="flex items-center justify-between mb-2 xs:mb-3">
+                      <h3 className="text-base xs:text-lg font-medium text-card-foreground">Outfit</h3>
                       <button
                         onClick={() => likeOutfit(outfit.outfitId)}
                         className="text-muted-foreground hover:text-red-500 transition-colors"
@@ -308,14 +308,14 @@ export default function OutfitsPage() {
                       </button>
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 xs:space-y-2">
                       {topItem && (
                         <div className="flex items-center space-x-2">
                           <div 
-                            className="w-3 h-3 rounded-full border border-gray-300"
+                            className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full border border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: topItem.color }}
                           ></div>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs xs:text-sm text-muted-foreground truncate">
                             {topItem.color} {topItem.category}
                           </span>
                         </div>
@@ -323,10 +323,10 @@ export default function OutfitsPage() {
                       {bottomItem && (
                         <div className="flex items-center space-x-2">
                           <div 
-                            className="w-3 h-3 rounded-full border border-gray-300"
+                            className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full border border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: bottomItem.color }}
                           ></div>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs xs:text-sm text-muted-foreground truncate">
                             {bottomItem.color} {bottomItem.category}
                           </span>
                         </div>
@@ -334,10 +334,10 @@ export default function OutfitsPage() {
                       {shoeItem && (
                         <div className="flex items-center space-x-2">
                           <div 
-                            className="w-3 h-3 rounded-full border border-gray-300"
+                            className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full border border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: shoeItem.color }}
                           ></div>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs xs:text-sm text-muted-foreground truncate">
                             {shoeItem.color} {shoeItem.category}
                           </span>
                         </div>
@@ -345,21 +345,21 @@ export default function OutfitsPage() {
                       {accessoryItem && (
                         <div className="flex items-center space-x-2">
                           <div 
-                            className="w-3 h-3 rounded-full border border-gray-300"
+                            className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full border border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: accessoryItem.color }}
                           ></div>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs xs:text-sm text-muted-foreground truncate">
                             {accessoryItem.color} {accessoryItem.category}
                           </span>
                         </div>
                       )}
                     </div>
                     
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-2 xs:mt-3 space-y-1.5 xs:space-y-2">
                       {/* Color Scheme */}
                       {outfit.colorScheme && (
                         <div className="text-xs text-muted-foreground">
-                          <strong>Color Scheme:</strong> {outfit.colorScheme}
+                          <strong>Color Scheme:</strong> <span className="break-words">{outfit.colorScheme}</span>
                         </div>
                       )}
                       
@@ -367,9 +367,9 @@ export default function OutfitsPage() {
                       {outfit.styleNotes && outfit.styleNotes.length > 0 && (
                         <div className="text-xs text-muted-foreground">
                           <strong>Style Notes:</strong>
-                          <ul className="list-disc list-inside ml-2 mt-1">
+                          <ul className="list-disc list-inside ml-2 mt-1 space-y-0.5">
                             {outfit.styleNotes.map((note, index) => (
-                              <li key={index}>{note}</li>
+                              <li key={index} className="break-words">{note}</li>
                             ))}
                           </ul>
                         </div>
@@ -377,7 +377,7 @@ export default function OutfitsPage() {
                       
                       {/* Reasoning */}
                       <div className="text-xs text-muted-foreground">
-                        <strong>Analysis:</strong> {outfit.reasoning}
+                        <strong>Analysis:</strong> <span className="break-words">{outfit.reasoning}</span>
                       </div>
                       
                       {/* Confidence and Occasion */}
