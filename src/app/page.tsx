@@ -29,7 +29,23 @@ function HomePageContent() {
       const authParam = urlParams.get('auth')
       if (authParam === 'login' || authParam === 'signup') {
         setAuthMode(authParam as AuthMode)
+      } else {
+        // Clear auth mode if no auth parameter in URL
+        setAuthMode(null)
       }
+    }
+  }, [])
+
+  // Close auth modal when navigating away
+  useEffect(() => {
+    const handleRouteChange = () => {
+      setAuthMode(null)
+    }
+    
+    if (typeof window !== 'undefined') {
+      // Listen for popstate (back/forward navigation)
+      window.addEventListener('popstate', handleRouteChange)
+      return () => window.removeEventListener('popstate', handleRouteChange)
     }
   }, [])
 
@@ -134,15 +150,21 @@ function HomePageContent() {
 
   const signInWithGoogle = async () => {
     try {
-      // Use environment variable for production, fallback to window.location.origin for development
-      const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL 
-        ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-        : `${window.location.origin}/auth/callback`
+      // Always use current origin for redirect to support both dev and production
+      const redirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback`
+        : (process.env.NEXT_PUBLIC_SITE_URL 
+          ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+          : 'http://localhost:3000/auth/callback')
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       })
       

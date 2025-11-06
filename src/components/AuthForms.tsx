@@ -22,19 +22,34 @@ export function LoginForm({ onSuccess, onSwitchMode }: AuthFormProps) {
     setLoading(true)
     setError('')
 
+    // Validate email format before sending to Supabase
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address')
+      setLoading(false)
+      return
+    }
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       })
 
       if (error) {
-        setError(error.message)
+        // Provide more helpful error messages
+        if (error.message.includes('Invalid login credentials') || error.message.includes('Email not confirmed')) {
+          setError('Invalid email or password. If you don\'t have an account, please sign up first.')
+        } else if (error.message.includes('email')) {
+          setError('Please check your email address and try again.')
+        } else {
+          setError(error.message)
+        }
       } else {
         onSuccess?.()
       }
     } catch (err) {
-      setError('An unexpected error occurred')
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -71,24 +86,44 @@ export function LoginForm({ onSuccess, onSwitchMode }: AuthFormProps) {
     setError('')
 
     try {
-      // Use environment variable for production, fallback to window.location.origin for development
-      const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL 
-        ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-        : `${window.location.origin}/auth/callback`
+      // Always use current origin for redirect to support both dev and production
+      const redirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback`
+        : (process.env.NEXT_PUBLIC_SITE_URL 
+          ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+          : 'http://localhost:3000/auth/callback')
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       })
 
       if (error) {
-        setError(error.message)
+        // Provide more helpful error messages for OAuth
+        if (error.message.includes('popup') || error.message.includes('blocked')) {
+          setError('Popup was blocked. Please allow popups for this site and try again, or use email/password sign in.')
+        } else if (error.message.includes('redirect')) {
+          setError('OAuth redirect error. Please check your browser settings or try email/password sign in.')
+        } else {
+          setError(error.message || 'Failed to sign in with Google. Please try email/password sign in or try again later.')
+        }
         setLoading(false)
       }
+      // Note: OAuth redirect will navigate away, so we don't set loading to false on success
     } catch (err) {
-      setError('An unexpected error occurred')
+      console.error('Google OAuth error:', err)
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
+      if (errorMessage.includes('popup') || errorMessage.includes('blocked')) {
+        setError('Google sign-in was blocked. Please allow popups or use email/password sign in.')
+      } else {
+        setError('Failed to sign in with Google. Please try email/password sign in or try again later.')
+      }
       setLoading(false)
     }
   }
@@ -216,7 +251,19 @@ export function LoginForm({ onSuccess, onSwitchMode }: AuthFormProps) {
 
         {error && (
           <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
-            {error}
+            <div className="mb-2">{error}</div>
+            {error.includes('Invalid email or password') && onSwitchMode && (
+              <div className="mt-2 pt-2 border-t border-destructive/20">
+                <span className="text-xs text-muted-foreground">Don't have an account? </span>
+                <button
+                  type="button"
+                  onClick={onSwitchMode}
+                  className="text-xs text-primary hover:text-primary/80 font-medium underline"
+                >
+                  Sign up here
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -306,13 +353,24 @@ export function SignupForm({ onSuccess, onSwitchMode }: AuthFormProps) {
     }
 
     try {
+      // Validate email format before sending to Supabase
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        setError('Please enter a valid email address')
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         options: {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: typeof window !== 'undefined' 
+            ? `${window.location.origin}/auth/callback`
+            : undefined,
         },
       })
 
@@ -324,8 +382,10 @@ export function SignupForm({ onSuccess, onSwitchMode }: AuthFormProps) {
             errorMessage.includes('already been registered')) {
           setAccountExists(true)
           setError('An account with this email already exists. Please sign in instead.')
+        } else if (errorMessage.includes('invalid email') || errorMessage.includes('email')) {
+          setError('Please enter a valid email address')
         } else {
-          setError(error.message)
+          setError(error.message || 'Failed to create account. Please try again.')
         }
       } else {
         if (data.user) {
@@ -347,13 +407,19 @@ export function SignupForm({ onSuccess, onSwitchMode }: AuthFormProps) {
             console.log('Profile creation failed (may be expected):', profileErr)
           }
 
-          onSuccess?.()
+          // Check if email confirmation is required
+          if (data.user && !data.session) {
+            setError('Account created successfully! Please check your email to verify your account before signing in.')
+          } else {
+            onSuccess?.()
+          }
         } else {
           setError('Account created successfully! Please check your email to verify your account.')
         }
       }
     } catch (err) {
-      setError('An unexpected error occurred')
+      console.error('Signup error:', err)
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -364,24 +430,44 @@ export function SignupForm({ onSuccess, onSwitchMode }: AuthFormProps) {
     setError('')
 
     try {
-      // Use environment variable for production, fallback to window.location.origin for development
-      const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL 
-        ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-        : `${window.location.origin}/auth/callback`
+      // Always use current origin for redirect to support both dev and production
+      const redirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback`
+        : (process.env.NEXT_PUBLIC_SITE_URL 
+          ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+          : 'http://localhost:3000/auth/callback')
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       })
 
       if (error) {
-        setError(error.message)
+        // Provide more helpful error messages for OAuth
+        if (error.message.includes('popup') || error.message.includes('blocked')) {
+          setError('Popup was blocked. Please allow popups for this site and try again, or use email/password sign up.')
+        } else if (error.message.includes('redirect')) {
+          setError('OAuth redirect error. Please check your browser settings or try email/password sign up.')
+        } else {
+          setError(error.message || 'Failed to sign up with Google. Please try email/password sign up or try again later.')
+        }
         setLoading(false)
       }
+      // Note: OAuth redirect will navigate away, so we don't set loading to false on success
     } catch (err) {
-      setError('An unexpected error occurred')
+      console.error('Google OAuth error:', err)
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
+      if (errorMessage.includes('popup') || errorMessage.includes('blocked')) {
+        setError('Google sign-up was blocked. Please allow popups or use email/password sign up.')
+      } else {
+        setError('Failed to sign up with Google. Please try email/password sign up or try again later.')
+      }
       setLoading(false)
     }
   }

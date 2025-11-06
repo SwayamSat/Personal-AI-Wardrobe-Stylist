@@ -178,12 +178,8 @@ export default function UploadPage() {
 
           // Analyze with professional Gemini service
           console.log('🔍 Professional analysis starting...')
-          const analysisResponse = await fetch('/api/analyze-clothing', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64 })
-          })
-
+          
+          // Default fallback analysis
           let analysis = {
             category: selectedCategory as 'top' | 'bottom' | 'shoe' | 'accessory',
             color: 'black',
@@ -192,29 +188,50 @@ export default function UploadPage() {
             confidence: 0.5
           }
 
-          if (analysisResponse.ok) {
-            // Check if response is JSON before parsing
-            const contentType = analysisResponse.headers.get('content-type')
-            if (contentType && contentType.includes('application/json')) {
-              const analysisData = await analysisResponse.json()
-              if (analysisData.success) {
-                analysis = {
-                  category: selectedCategory as 'top' | 'bottom' | 'shoe' | 'accessory',
-                  color: analysisData.analysis.color,
-                  material: analysisData.analysis.material,
-                  style: analysisData.analysis.style,
-                  confidence: analysisData.analysis.confidence
+          try {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
+
+            const analysisResponse = await fetch('/api/analyze-clothing', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: base64 }),
+              signal: controller.signal
+            })
+
+            clearTimeout(timeoutId)
+
+            if (analysisResponse.ok) {
+              // Check if response is JSON before parsing
+              const contentType = analysisResponse.headers.get('content-type')
+              if (contentType && contentType.includes('application/json')) {
+                const analysisData = await analysisResponse.json()
+                if (analysisData.success) {
+                  analysis = {
+                    category: selectedCategory as 'top' | 'bottom' | 'shoe' | 'accessory',
+                    color: analysisData.analysis.color,
+                    material: analysisData.analysis.material,
+                    style: analysisData.analysis.style,
+                    confidence: analysisData.analysis.confidence
+                  }
+                  console.log('✅ Professional analysis:', analysis)
+                  if (analysisData.fallback) {
+                    console.log('⚠️ Used fallback analysis due to:', analysisData.error)
+                  }
                 }
-                console.log('✅ Professional analysis:', analysis)
-                if (analysisData.fallback) {
-                  console.log('⚠️ Used fallback analysis due to:', analysisData.error)
-                }
+              } else {
+                console.log('⚠️ Non-JSON response from analysis API')
               }
             } else {
-              console.log('⚠️ Non-JSON response from analysis API')
+              console.log('⚠️ Analysis failed with status:', analysisResponse.status)
             }
-          } else {
-            console.log('⚠️ Analysis failed with status:', analysisResponse.status)
+          } catch (fetchError: any) {
+            if (fetchError.name === 'AbortError') {
+              console.log('⚠️ Analysis timed out, using fallback')
+            } else {
+              console.error('⚠️ Analysis request failed:', fetchError)
+            }
+            // Use fallback analysis (already set above)
           }
 
           // Save to database with fallback for missing columns
@@ -318,12 +335,34 @@ export default function UploadPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Please sign in to upload clothes</h1>
-          <Link href="/" className="text-purple-600 hover:text-purple-700">Go back to home</Link>
+      <PageAnimation className="min-h-screen relative">
+        <Header />
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <h1 className="text-2xl xs:text-3xl font-bold text-foreground mb-4">Sign in to upload clothes</h1>
+            <p className="text-muted-foreground mb-6">
+              Create an account or sign in to start building your digital wardrobe with AI-powered analysis.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link 
+                href="/?auth=signup" 
+                className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Sign Up Free
+              </Link>
+              <Link 
+                href="/?auth=login" 
+                className="inline-flex items-center justify-center px-6 py-3 bg-secondary text-secondary-foreground border border-border rounded-lg font-semibold hover:bg-accent transition-colors"
+              >
+                Sign In
+              </Link>
+            </div>
+            <Link href="/" className="inline-block mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              ← Go back to home
+            </Link>
+          </div>
         </div>
-      </div>
+      </PageAnimation>
     )
   }
 

@@ -18,8 +18,14 @@ export async function POST(request: NextRequest) {
       imageBase64 = image.split(',')[1];
     }
 
-    // Perform professional analysis
-    const analysis = await analyzeClothingItem(imageBase64);
+    // Perform professional analysis with timeout
+    const ANALYSIS_TIMEOUT = 60000; // 60 seconds timeout
+    const analysisPromise = analyzeClothingItem(imageBase64);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Analysis timeout: Operation took too long')), ANALYSIS_TIMEOUT)
+    );
+
+    const analysis = await Promise.race([analysisPromise, timeoutPromise]) as Awaited<ReturnType<typeof analyzeClothingItem>>;
     
     console.log('✅ Professional analysis completed:', analysis);
     
