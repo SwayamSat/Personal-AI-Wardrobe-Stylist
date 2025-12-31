@@ -22,17 +22,17 @@ A Next.js application that uses AI to analyze your clothing items and generate p
 ## Screenshots
 
 <img width="1208" height="1998" alt="personal-ai-wardrobe-stylist vercel app_" src="https://github.com/user-attachments/assets/e43fdd09-577e-4ce1-9ac1-4c8d5872b691" />
-
-
+\n
+\n
 <img width="1897" height="850" alt="image" src="https://github.com/user-attachments/assets/ab00fa8e-ae7f-481f-9bd4-f71308149601" />
 
-
+\n
 <img width="1895" height="854" alt="image" src="https://github.com/user-attachments/assets/38223c8c-d8dc-4cae-acf3-694da7bfaf3a" />
 
-
+\n
 <img width="1893" height="865" alt="image" src="https://github.com/user-attachments/assets/8c878e1a-0343-4451-9401-829c3cd96d3d" />
 
-
+\n
 <img width="1901" height="839" alt="image" src="https://github.com/user-attachments/assets/9fa36ec1-5247-4f3f-8c2d-0cb9d29477ce" />
 
 
